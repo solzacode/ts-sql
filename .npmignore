@@ -1,2 +1,5 @@
+.vscode/
+coverage/
 lib/
 test/
+.travis.yml
