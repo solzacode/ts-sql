@@ -1,0 +1,50 @@
+{
+    "name": "ts-sql",
+    "version": "0.0.1",
+    "description": "An SQL builder in Typescript. This project is heavily inspired by [XQL](/extjs/xql). A big shout out to @exjs and @kobalicek for this amazing project.",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "test": "jest"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/solzacode/ts-sql.git"
+    },
+    "keywords": [
+        "SQL",
+        "AST",
+        "typescript",
+        "select",
+        "from",
+        "where",
+        "mysql",
+        "builder",
+        "parse"
+    ],
+    "author": "Charles Prakash Dasari <prakash@solza.io> (https://github.com/charlesprakash)",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/solzacode/ts-sql/issues"
+    },
+    "homepage": "https://github.com/solzacode/ts-sql#readme",
+    "devDependencies": {
+        "jest": "^22.2.2",
+        "ts-jest": "^22.0.3",
+        "typescript": "^2.7.1"
+    },
+    "jest": {
+        "transform": {
+            "^.+\\.tsx?$": "ts-jest",
+            "^.+\\.ts?$": "ts-jest"
+        },
+        "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?|ts?|js?)$",
+        "moduleFileExtensions": [
+            "ts",
+            "tsx",
+            "js",
+            "jsx"
+        ]
+    }
+}
