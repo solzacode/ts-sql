@@ -1,9 +1,9 @@
 [![Build Status](https://travis-ci.org/solzacode/ts-sql.svg?branch=master)](https://travis-ci.org/solzacode/ts-sql)
 [![Coverage Status](https://coveralls.io/repos/github/solzacode/ts-sql/badge.svg?branch=master)](https://coveralls.io/github/solzacode/ts-sql?branch=master)
 
-# ts-xql
+# ts-sql
 
-An SQL builder in Typescript. This project is heavily inspired by [XQL](/extjs/xql). A big shout out to @exjs and @kobalicek for this amazing project.
+An SQL builder in Typescript. This project is heavily inspired by and reuses several parts of [XQL](https://github.com/exjs/xql). A big shout out to [@exjs](https://github.com/exjs) and [@kobalicek](https://github.com/kobalicek) for this amazing project.
 
 ## Beta
 
