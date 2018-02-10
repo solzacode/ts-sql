@@ -30,6 +30,8 @@
     },
     "homepage": "https://github.com/solzacode/ts-sql#readme",
     "devDependencies": {
+        "coveralls": "^3.0.0",
+        "istanbul": "^0.4.5",
         "jest": "^22.2.2",
         "ts-jest": "^22.0.3",
         "typescript": "^2.7.1"
@@ -45,6 +47,7 @@
             "tsx",
             "js",
             "jsx"
-        ]
+        ],
+        "collectCoverage": true
     }
 }
