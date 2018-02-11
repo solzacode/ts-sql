@@ -30,10 +30,11 @@
     },
     "homepage": "https://github.com/solzacode/ts-sql#readme",
     "devDependencies": {
+        "@types/jest": "^22.1.2",
         "coveralls": "^3.0.0",
         "istanbul": "^0.4.5",
         "jest": "^22.2.2",
-        "ts-jest": "^22.0.3",
+        "ts-jest": "^22.0.4",
         "typescript": "^2.7.1"
     },
     "jest": {
