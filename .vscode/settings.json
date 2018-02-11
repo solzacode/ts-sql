@@ -1,5 +1,18 @@
 {
     "cSpell.words": [
-        "Solza"
+        "DISTINCTROW",
+        "Mixins",
+        "Solza",
+        "Truthy",
+        "astsql"
+    ],
+    "cSpell.ignorePaths": [
+        "**/node_modules/**",
+        "**/vscode-extension/**",
+        "**/.git/**",
+        ".vscode",
+        "typings",
+        "tslint.json",
+        "tsconfig.json"
     ]
 }
