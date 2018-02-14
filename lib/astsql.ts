@@ -2,35 +2,55 @@
 // 1. Grammar referenced from https://github.com/antlr/grammars-v4/tree/master/mysql
 // 2. Project inspired from https://github.com/exjs/xql
 
-type SelectAll = "*";
-type NotOperator = "NOT" | "!";
-type UnaryOperator = NotOperator | "~" | "+" | "-";
-type ComparisonOperator = "=" | ">" | "<" | ">=" | "<=" | "!=" | "<=>";
-type LogicalOperator = "AND" | "OR" | "XOR" | "&&" | "||";
-type BitOperator = "<<" | ">>" | "&" | "|" | "^";
-type MathOperator = "*" | "/" | "DIV" | "MOD" | "%" | "+" | "-";
-type NullLiteral = "NULL" | "NOT NULL";
-type ConstantType = string | number | boolean | NullLiteral;
-type BinaryOperator = ComparisonOperator | LogicalOperator | BitOperator | MathOperator;
-type SortType = "ASC" | "DESC";
-type All = "ALL";
-type Distinct = "DISTINCT";
-type SelectSpec = All | Distinct | "DISTINCTROW" | "HIGH_PRIORITY" | "STRAIGHT_JOIN"
+export type SqlDialect = "MySQL" | "Custom";    // Future support: "ANSI-SQL" | "T-SQL" | "PL-SQL"
+export type SelectAll = "*";
+export type NotOperator = "NOT" | "!";
+export type UnaryOperator = NotOperator | "~" | "+" | "-";
+export type ComparisonOperator = "=" | ">" | "<" | ">=" | "<=" | "!=" | "<=>";
+export type LogicalOperator = "AND" | "OR" | "XOR" | "&&" | "||";
+export type BitOperator = "<<" | ">>" | "&" | "|" | "^";
+export type MathOperator = "*" | "/" | "DIV" | "MOD" | "%" | "+" | "-";
+export type NullLiteral = "NULL" | "NOT NULL";
+export type ConstantType = string | number | boolean | NullLiteral;
+export type BinaryOperator = ComparisonOperator | LogicalOperator | BitOperator | MathOperator;
+export type SortType = "ASC" | "DESC";
+export type All = "ALL";
+export type Distinct = "DISTINCT";
+export type SelectSpec = All | Distinct | "DISTINCTROW" | "HIGH_PRIORITY" | "STRAIGHT_JOIN"
     | "SQL_SMALL_RESULT" | "SQL_BIG_RESULT" | "SQL_BUFFER_RESULT" | "SQL_CACHE" | "SQL_NO_CACHE" | "SQL_CALC_FOUND_ROWS";
+export type LockClause = "FOR UPDATE" | "LOCK IN SHARE MODE";
+export type Quantifier = "ALL" | "SOME" | "ANY";
+export type IntervalTypeBase = "QUARTER" | "MONTH" | "DAY" | "HOUR" | "MINUTE" | "WEEK" | "SECOND" | "MICROSECOND";
+export type IntervalType =
+    IntervalTypeBase
+    | "YEAR"
+    | "YEAR_MONTH"
+    | "DAY_HOUR"
+    | "DAY_MINUTE"
+    | "DAY_SECOND"
+    | "HOUR_MINUTE"
+    | "HOUR_SECOND"
+    | "MINUTE_SECOND"
+    | "SECOND_MICROSECOND"
+    | "MINUTE_MICROSECOND"
+    | "HOUR_MICROSECOND"
+    | "DAY_MICROSECOND";
+export type JoinType = "INNER" | "CROSS" | "LEFT OUTER" | "RIGHT OUTER";  // Natural & straight joins not supported
 
-interface SqlAstNode {
+export interface SqlAstNode {
     nodeType: string;
 }
 
-interface NotImplemented extends SqlAstNode {
+export interface NotImplemented extends SqlAstNode {
     // Represents a non implemented feature
 }
 
-interface SqlRoot extends SqlAstNode {
+export interface SqlRoot extends SqlAstNode {
+    dialect: SqlDialect;
     statements: SqlStatement[];
 }
 
-type SqlStatement =
+export type SqlStatement =
     DdlStatement
     | DmlStatement
     | TransactionStatement
@@ -40,202 +60,341 @@ type SqlStatement =
     | UtilityStatement;
 
 // SQL statements
-type DmlStatement =
-    SelectStatement
-    | NotImplemented;
-
-type DdlStatement = NotImplemented;
-type TransactionStatement = NotImplemented;
-type ReplicationStatement = NotImplemented;
-type PreparedStatement = NotImplemented;
-type AdministrationStatement = NotImplemented;
-type UtilityStatement = NotImplemented;
+export type DdlStatement = NotImplemented;
+export type TransactionStatement = NotImplemented;
+export type ReplicationStatement = NotImplemented;
+export type PreparedStatement = NotImplemented;
+export type AdministrationStatement = NotImplemented;
+export type UtilityStatement = NotImplemented;
 
 // DML Statements
-type InsertStatement = NotImplemented;
-type UpdateStatement = NotImplemented;
-type DeleteStatement = NotImplemented;
-type ReplaceStatement = NotImplemented;
-type CallStatement = NotImplemented;
-type LoadDataStatement = NotImplemented;
-type LoadXmlStatement = NotImplemented;
-type DoStatement = NotImplemented;
-type HandlerStatement = NotImplemented;
+export type DmlStatement =
+    SelectStatement
+    | InsertStatement
+    | UpdateStatement
+    | DeleteStatement
+    | ReplaceStatement
+    | CallStatement
+    | LoadDataStatement
+    | LoadXmlStatement
+    | DoStatement
+    | HandlerStatement;
 
-interface SelectStatement extends SqlAstNode {
-    selectSpec?: SelectSpec[];
-    selectAll?: SelectAll;
-    elements: SelectElement[];
-    selectInto?: SelectIntoExpression;
-    from?: From;
-    orderBy?: OrderBy;
-    limit?: Limit;
-    unionWith?: SelectStatement[];
+export type InsertStatement = NotImplemented;
+export type UpdateStatement = NotImplemented;
+export type DeleteStatement = NotImplemented;
+export type ReplaceStatement = NotImplemented;
+export type CallStatement = NotImplemented;
+export type LoadDataStatement = NotImplemented;
+export type LoadXmlStatement = NotImplemented;
+export type DoStatement = NotImplemented;
+export type HandlerStatement = NotImplemented;
+
+export interface SelectStatement extends SqlAstNode {
+    query: QueryIntoExpression | UnionGroupStatement;
+    lock?: LockClause;
 }
 
-type SelectElement =
+export interface QueryExpression extends SqlAstNode {
+    selectSpec?: SelectSpec[];
+    selectAll?: SelectAll;          // If all is specified, then elements could be an empty array
+    elements: SelectElement[];
+    from?: FromClause;
+    orderBy?: OrderByClause;
+    limit?: LimitClause;
+}
+
+export interface QueryIntoExpression extends SqlAstNode {
+    query: QueryExpression;
+    into?: SelectIntoExpression;
+}
+
+export interface UnionGroupStatement extends SqlAstNode {
+    union: UnionStatement;
+    unionType?: All | Distinct;
+    unionLast?: QueryIntoExpression;
+    orderBy?: OrderByClause;
+    limit?: LimitClause;
+}
+
+export interface UnionStatement extends SqlAstNode {
+    first: QueryExpression;
+    unionType?: All | Distinct;
+    second: QueryExpression | UnionStatement;
+}
+
+export type SelectElement =
     AllColumns
     | AliasedTerm<ColumnName>
     | AliasedTerm<FunctionCall>
     | AliasedTerm<AssignedTerm<Expression>>;
 
-interface AllColumns extends SqlAstNode {
+export interface AllColumns extends SqlAstNode {
     // table.*
     table: string;
 }
 
-interface ColumnName extends SqlAstNode {
+export interface ColumnName extends SqlAstNode {
     name: string;
     table?: string;
 }
 
-type FunctionCall =
+export type FunctionCall =
     SpecificFunction
     | AggregatedWindowFunction
-    | SimpleFunctionCall
-    | CaseExpression;
+    | SimpleFunctionCall        // Handles built in functions as well as user defined functions
+    | PasswordFunction;
 
-type SpecificFunction = NotImplemented;
-type AggregatedWindowFunction = NotImplemented;
+export type SpecificFunction = CaseExpression | NotImplemented;
+export type AggregatedWindowFunction = NotImplemented;
+export type PasswordFunction = NotImplemented;
 
-interface SimpleFunctionCall extends SqlAstNode {
+export interface SimpleFunctionCall extends SqlAstNode {
     name: string;
     arguments?: FunctionArgument[];
 }
 
-interface CaseExpression extends SqlAstNode {
+export interface CaseExpression extends SqlAstNode {
     argument: Expression;
     branches: CaseBranchExpression[];
     elseBranch: FunctionArgument;
 }
 
-interface CaseBranchExpression extends SqlAstNode {
+export interface CaseBranchExpression extends SqlAstNode {
     expression: FunctionArgument;
     result: FunctionArgument;
 }
 
-type FunctionArgument =
+export type FunctionArgument =
     Constant
     | ColumnName
     | FunctionCall
     | Expression;
 
-interface Constant extends SqlAstNode {
+export interface Constant extends SqlAstNode {
     value: ConstantType;
 }
 
-type Expression =
+export interface AliasedTerm<TTerm> extends SqlAstNode {
+    term: TTerm;
+    alias?: string;
+}
+
+export interface AssignedTerm<TTerm> extends SqlAstNode {
+    variable?: string;
+    value: TTerm;
+}
+
+export type Expression =
     NotExpression
     | BinaryExpression<LogicalOperator>
     | TruthyPredicate
     | Predicate;
 
-interface NotExpression extends SqlAstNode {
+export interface NotExpression extends SqlAstNode {
     expression: Expression;
 }
 
-interface BinaryExpression<TOperator extends BinaryOperator> extends SqlAstNode {
+export interface BinaryExpression<TOperator extends BinaryOperator> extends SqlAstNode {
     left: Expression;
     operator: TOperator;
     right: Expression;
 }
 
-interface TruthyPredicate extends SqlAstNode {
+export interface TruthyPredicate extends SqlAstNode {
     // predicate IS TRUE | predicate IS FALSE | predicate IS UNKNOWN
     negate?: boolean;
     testValue?: boolean;    // TRUE | FALSE | UNKNOWN
     predicate: Predicate;
 }
 
-type Predicate =
+export type Predicate =
     InPredicate
-    | NullCheckPredicate
+    | IsNullNotNullPredicate
     | BinaryPredicate
     | BetweenPredicate
+    | SoundsLikePredicate
     | LikePredicate
+    | RegexPredicate
     | AssignedExpressionAtom;
 
-interface InPredicate extends SqlAstNode {
+export interface InPredicate extends SqlAstNode {
     negate: boolean;    // Default to false
-    value: Predicate;
-    targetSet: SelectStatement | Expression[];
+    predicate: Predicate;
+    target: SelectStatement | Expression[];
 }
 
-interface NullCheckPredicate extends SqlAstNode {
-    isNull: boolean;
-    expression: Predicate;
+export interface IsNullNotNullPredicate extends SqlAstNode {
+    checkWith: NullLiteral;
+    predicate: Predicate;
 }
 
-type ExpressionAtom =
+export interface BinaryPredicate extends SqlAstNode {
+    left: Predicate;
+    operator: ComparisonOperator;
+    right: Predicate | QuantifiedSelectStatement;
+}
+
+export interface QuantifiedSelectStatement extends SqlAstNode {
+    quantifier: Quantifier;
+    statement: SelectStatement;
+}
+
+export interface BetweenPredicate extends SqlAstNode {
+    negate: boolean;
+    left: Predicate;
+    right: Predicate;
+}
+
+export interface SoundsLikePredicate extends SqlAstNode {
+    left: Predicate;
+    right: Predicate;
+}
+
+export interface LikePredicate extends SqlAstNode {
+    negate: boolean;
+    left: Predicate;
+    right: Predicate;
+}
+
+export type RegexPredicate = NotImplemented;
+
+export interface AssignedExpressionAtom extends SqlAstNode {
+    variable?: string;
+    expression: ExpressionAtom;
+}
+
+/*--------------------
+    expressionAtom
+        : constant                                                      #constantExpressionAtom
+        | fullColumnName                                                #fullColumnNameExpressionAtom
+        | functionCall                                                  #functionCallExpressionAtom
+        | expressionAtom COLLATE collationName                          #collateExpressionAtom
+        | mysqlVariable                                                 #mysqlVariableExpressionAtom
+        | unaryOperator expressionAtom                                  #unaryExpressionAtom
+        | BINARY expressionAtom                                         #binaryExpressionAtom
+        | '(' expression (',' expression)* ')'                          #nestedExpressionAtom
+        | ROW '(' expression (',' expression)+ ')'                      #nestedRowExpressionAtom
+        | EXISTS '(' selectStatement ')'                                #existsExpressionAtom
+        | '(' selectStatement ')'                                       #subQueryExpressionAtom
+        | INTERVAL expression intervalType                              #intervalExpressionAtom
+        | left=expressionAtom bitOperator right=expressionAtom          #bitExpressionAtom
+        | left=expressionAtom mathOperator right=expressionAtom         #mathExpressionAtom
+        ;
+-----------------------*/
+export type ExpressionAtom =
     Constant
     | ColumnName
     | FunctionCall
-    | UnaryExpressionAtom<UnaryOperator>
+    | CollatedExpression
+    | Variable
+    | UnaryExpressionAtom
+    | BinaryModifiedExpression
     | Expression[]
+    | RowExpression
     | ExistsSelectStatement
     | NestedSelectStatement
-    | BinaryExpressionAtom<BitOperator>
-    | BinaryExpressionAtom<MathOperator>;
+    | BinaryExpressionAtom<BitOperator | MathOperator>;
 
-interface UnaryExpressionAtom<TOperator extends UnaryOperator> {
-    operator: TOperator;
-    expressionAtom: ExpressionAtom;
+export type CollatedExpression = NotImplemented;
+
+export interface Variable extends SqlAstNode {
+    name: string;
 }
 
-interface BinaryExpressionAtom<TOperator extends BinaryOperator> {
+export interface UnaryExpressionAtom extends SqlAstNode {
+    operator: UnaryOperator;
+    expression: ExpressionAtom;
+}
+
+export interface BinaryModifiedExpression extends SqlAstNode {
+    expression: ExpressionAtom;
+}
+
+export interface RowExpression extends SqlAstNode {
+    expressions: Expression[];
+}
+
+export interface IntervalExpression extends SqlAstNode {
+    expression: Expression;
+    intervalType: IntervalType;
+}
+
+export interface BinaryExpressionAtom<TOperator extends BinaryOperator> {
     left: ExpressionAtom;
     operator: TOperator;
     right: ExpressionAtom;
 }
 
-interface AssignedTerm<TTerm> extends SqlAstNode {
-    variable?: string;
-    value: TTerm;
-}
-
-interface AliasedTerm<TTerm> extends SqlAstNode {
-    term: TTerm;
-    alias?: string;
-}
-
-interface AssignedExpressionAtom extends SqlAstNode {
-    variable?: string;
-    value: ExpressionAtom;
-}
-
-interface BinaryPredicate extends SqlAstNode {
-    left: Predicate;
-    operator: ComparisonOperator;
-    right: Predicate | NestedSelectStatement;
-}
-
-interface BetweenPredicate extends SqlAstNode {
-    negate: boolean;
-    left: Predicate;
-    right: Predicate;
-}
-
-interface LikePredicate extends SqlAstNode {
-    negate: boolean;
-    left: Predicate;
-    right: Predicate;
-}
-
-interface NestedSelectStatement extends SqlAstNode {
+export interface NestedSelectStatement extends SqlAstNode {
     statement: SelectStatement;
 }
 
 // TODO: To be filled out
-interface ExistsSelectStatement extends NestedSelectStatement {
+export interface ExistsSelectStatement extends NestedSelectStatement {
 }
 
-type SelectIntoExpression = NotImplemented;
+export type SelectIntoExpression = SelectIntoFieldsExpression | SelectIntoDumpFileExpression | SelectIntoOutFileExpression;
+export type SelectIntoDumpFileExpression = NotImplemented;
+export type SelectIntoOutFileExpression = NotImplemented;
 
-interface From extends SqlAstNode {
+export interface FromClause extends SqlAstNode {
+    tables: TableSource[];
+    where?: WhereClause;
+    groupBy?: GroupByClause;
+    having?: Expression;
 }
 
-interface OrderBy extends SqlAstNode {
+export interface TableSource extends SqlAstNode {
+    tableSourceItem: TableSourceItem;
+    joins?: JoinClause[];
 }
 
-interface Limit extends SqlAstNode {
+export type TableSourceItem = AliasedTerm<TableSpec> | AliasedTerm<NestedSelectStatement> | TableSource[];
+
+export interface TableSpec extends SqlAstNode {
+    tableName: string;
+    partitions?: string[]; // List of partition terms
+    indexHints?: IndexHint[];
+}
+
+export type IndexHint = NotImplemented;
+
+export interface WhereClause extends SqlAstNode {
+    expression: Expression;
+}
+
+export interface GroupByClause extends SqlAstNode {
+    items: GroupByItem[];
+    rollup: boolean;
+}
+
+export interface GroupByItem extends SqlAstNode {
+    expression: Expression;
+    descending: boolean;             // ASC | DESC
+}
+
+export interface JoinClause extends SqlAstNode {
+    joinType?: JoinType;
+    with: TableSourceItem;
+    on?: Expression;
+    using?: string[];       // Using a list of column names within the scope of the tables
+}
+
+export interface OrderByClause extends SqlAstNode {
+    expressions: OrderByExpression[];
+}
+
+export interface OrderByExpression extends SqlAstNode {
+    expression: Expression;
+    ascending: boolean;
+}
+
+export interface LimitClause extends SqlAstNode {
+    offset: number;
+    limit: number;
+}
+
+export interface SelectIntoFieldsExpression extends SqlAstNode {
+    fields: string[];
 }
