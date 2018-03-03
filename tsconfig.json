@@ -9,7 +9,12 @@
     "types": [
       "jest"
     ],
-    "sourceMap": true
+    "sourceMap": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "forceConsistentCasingInFileNames": true,
+    "pretty": true,
+    "alwaysStrict": true
   },
   "include": [
     "lib"

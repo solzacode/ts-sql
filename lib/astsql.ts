@@ -1,6 +1,5 @@
-// Acknowledgements:
-// 1. Grammar referenced from https://github.com/antlr/grammars-v4/tree/master/mysql
-// 2. Project inspired from https://github.com/exjs/xql
+import { AstSymbol } from "jsymbol";
+import "reflect-metadata";
 
 export type SqlDialect = "MySQL" | "Custom";    // Future support: "ANSI-SQL" | "T-SQL" | "PL-SQL"
 export type SelectAll = "*";
@@ -36,18 +35,100 @@ export type IntervalType =
     | "HOUR_MICROSECOND"
     | "DAY_MICROSECOND";
 export type JoinType = "INNER" | "CROSS" | "LEFT OUTER" | "RIGHT OUTER";  // Natural & straight joins not supported
+export enum AstSymbolType {
+    Table,
+    Field,
+    Variable,
+    Alias,
+    Function
+}
+export enum SqlAstNodeType {
+    Undefined,
+    NotImplemented,
+    SqlRoot,
+    SelectStatement,
+    QueryExpression,
+    QueryIntoExpression,
+    UnionGroupStatement,
+    UnionStatement,
+    AllColumns,
+    ColumnName,
+    SimpleFunctionCall,
+    CaseExpression,
+    CaseBranchExpression,
+    Constant,
+    AliasedTerm,
+    AssignedTerm,
+    NotExpression,
+    BinaryExpression,
+    TruthyPredicate,
+    InPredicate,
+    IsNullNotNullPredicate,
+    BinaryPredicate,
+    QuantifiedSelectStatement,
+    BetweenPredicate,
+    SoundsLikePredicate,
+    LikePredicate,
+    AssignedExpressionAtom,
+    Variable,
+    UnaryExpressionAtom,
+    BinaryModifiedExpression,
+    RowExpression,
+    IntervalExpression,
+    BinaryExpressionAtom,
+    NestedSelectStatement,
+    ExistsSelectStatement,
+    FromClause,
+    TableSource,
+    TableSpec,
+    WhereClause,
+    GroupByClause,
+    GroupByItem,
+    JoinClause,
+    OrderByClause,
+    OrderByExpression,
+    LimitClause,
+    SelectIntoFieldsExpression
+}
+export const NodeTypeKey = Symbol("SqlAst:NodeType");
+export const SqlAstNodeMarker = function(nodeType: SqlAstNodeType) {
+    return function<TNode extends new(...args: any[]) => SqlAstNode>(constructor: TNode) {
+        return class extends constructor {
+            constructor(...args: any[]) {
+                super(...args);
 
-export interface SqlAstNode {
-    nodeType: string;
+                if (!(this instanceof SqlAstNode)) {
+                    throw Error("Invalid node type found");
+                }
+
+                Reflect.defineMetadata(NodeTypeKey, nodeType, this);
+            }
+        };
+    };
+};
+export function getSqlAstNodeType(node: SqlAstNode) {
+    let type = Reflect.getMetadata(NodeTypeKey, node);
+    return SqlAstNodeType[type];
 }
 
-export interface NotImplemented extends SqlAstNode {
+export type SqlSymbol<T = {}> = string | AstSymbol<T>;
+
+export abstract class SqlAstNode {
+    getNodeType(): string {
+        return getSqlAstNodeType(this);
+    }
+}
+
+@SqlAstNodeMarker(SqlAstNodeType.NotImplemented)
+export class NotImplemented extends SqlAstNode {
     // Represents a non implemented feature
 }
 
-export interface SqlRoot extends SqlAstNode {
-    dialect: SqlDialect;
-    statements: SqlStatement[];
+@SqlAstNodeMarker(SqlAstNodeType.SqlRoot)
+export class SqlRoot extends SqlAstNode {
+    constructor(public dialect: string, public statements: SqlStatement[] = []) {
+        super();
+    }
 }
 
 export type SqlStatement =
@@ -90,37 +171,71 @@ export type LoadXmlStatement = NotImplemented;
 export type DoStatement = NotImplemented;
 export type HandlerStatement = NotImplemented;
 
-export interface SelectStatement extends SqlAstNode {
+@SqlAstNodeMarker(SqlAstNodeType.SelectStatement)
+export class SelectStatement extends SqlAstNode {
     query: QueryIntoExpression | UnionGroupStatement;
     lock?: LockClause;
+
+    constructor(query: QueryIntoExpression | UnionGroupStatement) {
+        super();
+
+        this.query = query;
+    }
 }
 
-export interface QueryExpression extends SqlAstNode {
+@SqlAstNodeMarker(SqlAstNodeType.QueryExpression)
+export class QueryExpression extends SqlAstNode {
     selectSpec?: SelectSpec[];
     selectAll?: SelectAll;          // If all is specified, then elements could be an empty array
     elements: SelectElement[];
     from?: FromClause;
     orderBy?: OrderByClause;
     limit?: LimitClause;
+
+    constructor(elements: SelectElement[] = []) {
+        super();
+
+        this.elements = elements;
+    }
 }
 
-export interface QueryIntoExpression extends SqlAstNode {
+@SqlAstNodeMarker(SqlAstNodeType.QueryIntoExpression)
+export class QueryIntoExpression extends SqlAstNode {
     query: QueryExpression;
     into?: SelectIntoExpression;
+
+    constructor(query: QueryExpression) {
+        super();
+
+        this.query = query;
+    }
 }
 
-export interface UnionGroupStatement extends SqlAstNode {
-    union: UnionStatement;
+@SqlAstNodeMarker(SqlAstNodeType.UnionStatement)
+export class UnionStatement extends SqlAstNode {
+    first: QueryExpression;
+    unionType?: All | Distinct;
+    second: QueryExpression | UnionStatement;
+
+    constructor(first: QueryExpression, second: QueryExpression | UnionStatement, unionType: All | Distinct = "ALL") {
+        super();
+
+        this.first = first;
+        this.second = second;
+        this.unionType = unionType;
+    }
+}
+
+@SqlAstNodeMarker(SqlAstNodeType.UnionGroupStatement)
+export class UnionGroupStatement extends SqlAstNode {
     unionType?: All | Distinct;
     unionLast?: QueryIntoExpression;
     orderBy?: OrderByClause;
     limit?: LimitClause;
-}
 
-export interface UnionStatement extends SqlAstNode {
-    first: QueryExpression;
-    unionType?: All | Distinct;
-    second: QueryExpression | UnionStatement;
+    constructor(public union: UnionStatement) {
+        super();
+    }
 }
 
 export type SelectElement =
@@ -129,14 +244,19 @@ export type SelectElement =
     | AliasedTerm<FunctionCall>
     | AliasedTerm<AssignedTerm<Expression>>;
 
-export interface AllColumns extends SqlAstNode {
-    // table.*
-    table: string;
+// Represents table.*
+@SqlAstNodeMarker(SqlAstNodeType.AllColumns)
+export class AllColumns extends SqlAstNode {
+    constructor(public table: SqlSymbol) {
+        super();
+    }
 }
 
-export interface ColumnName extends SqlAstNode {
-    name: string;
-    table?: string;
+@SqlAstNodeMarker(SqlAstNodeType.ColumnName)
+export class ColumnName extends SqlAstNode {
+    constructor(public name: SqlSymbol, public table?: SqlSymbol) {
+        super();
+    }
 }
 
 export type FunctionCall =
@@ -149,20 +269,30 @@ export type SpecificFunction = CaseExpression | NotImplemented;
 export type AggregatedWindowFunction = NotImplemented;
 export type PasswordFunction = NotImplemented;
 
-export interface SimpleFunctionCall extends SqlAstNode {
-    name: string;
-    arguments?: FunctionArgument[];
+@SqlAstNodeMarker(SqlAstNodeType.SimpleFunctionCall)
+export class SimpleFunctionCall extends SqlAstNode {
+    constructor(public name: SqlSymbol, public args?: FunctionArgument[]) {
+        super();
+    }
 }
 
-export interface CaseExpression extends SqlAstNode {
-    argument: Expression;
+@SqlAstNodeMarker(SqlAstNodeType.CaseExpression)
+export class CaseExpression extends SqlAstNode {
     branches: CaseBranchExpression[];
-    elseBranch: FunctionArgument;
+    elseBranch?: FunctionArgument;
+
+    constructor(public expression?: Expression) {
+        super();
+
+        this.branches = [];
+    }
 }
 
-export interface CaseBranchExpression extends SqlAstNode {
-    expression: FunctionArgument;
-    result: FunctionArgument;
+@SqlAstNodeMarker(SqlAstNodeType.CaseBranchExpression)
+export class CaseBranchExpression extends SqlAstNode {
+    constructor(public expression: FunctionArgument, public result: FunctionArgument) {
+        super();
+    }
 }
 
 export type FunctionArgument =
@@ -171,18 +301,25 @@ export type FunctionArgument =
     | FunctionCall
     | Expression;
 
-export interface Constant extends SqlAstNode {
-    value: ConstantType;
+@SqlAstNodeMarker(SqlAstNodeType.Constant)
+export class Constant extends SqlAstNode {
+    constructor(public value: ConstantType) {
+        super();
+    }
 }
 
-export interface AliasedTerm<TTerm> extends SqlAstNode {
-    term: TTerm;
-    alias?: string;
+@SqlAstNodeMarker(SqlAstNodeType.AliasedTerm)
+export class AliasedTerm<TTerm extends SqlAstNode> extends SqlAstNode {
+    constructor(public term: TTerm, public alias?: SqlSymbol) {
+        super();
+    }
 }
 
-export interface AssignedTerm<TTerm> extends SqlAstNode {
-    variable?: string;
-    value: TTerm;
+@SqlAstNodeMarker(SqlAstNodeType.AssignedTerm)
+export class AssignedTerm<TTerm extends SqlAstNode> extends SqlAstNode {
+    constructor(public value: TTerm, public variable?: SqlSymbol) {
+        super();
+    }
 }
 
 export type Expression =
@@ -191,21 +328,27 @@ export type Expression =
     | TruthyPredicate
     | Predicate;
 
-export interface NotExpression extends SqlAstNode {
-    expression: Expression;
+@SqlAstNodeMarker(SqlAstNodeType.NotExpression)
+export class NotExpression extends SqlAstNode {
+    constructor(public expression: Expression) {
+        super();
+    }
 }
 
-export interface BinaryExpression<TOperator extends BinaryOperator> extends SqlAstNode {
-    left: Expression;
-    operator: TOperator;
-    right: Expression;
+@SqlAstNodeMarker(SqlAstNodeType.BinaryExpression)
+export class BinaryExpression<TOperator extends BinaryOperator> extends SqlAstNode {
+    constructor(public left: Expression, public operator: TOperator, public right: Expression) {
+        super();
+    }
 }
 
-export interface TruthyPredicate extends SqlAstNode {
+@SqlAstNodeMarker(SqlAstNodeType.TruthyPredicate)
+export class TruthyPredicate extends SqlAstNode {
     // predicate IS TRUE | predicate IS FALSE | predicate IS UNKNOWN
-    negate?: boolean;
-    testValue?: boolean;    // TRUE | FALSE | UNKNOWN
-    predicate: Predicate;
+    // testValue?: boolean;    // TRUE | FALSE | UNKNOWN
+    constructor(public predicate: Predicate, public negate: boolean = false, public testValue?: boolean) {
+        super();
+    }
 }
 
 export type Predicate =
@@ -218,50 +361,63 @@ export type Predicate =
     | RegexPredicate
     | AssignedExpressionAtom;
 
-export interface InPredicate extends SqlAstNode {
-    negate: boolean;    // Default to false
-    predicate: Predicate;
-    target: SelectStatement | Expression[];
+@SqlAstNodeMarker(SqlAstNodeType.InPredicate)
+export class InPredicate extends SqlAstNode {
+    // negate: boolean;    // Default to false
+    constructor(public predicate: Predicate, public target: SelectStatement | Expression[], public negate: boolean = false) {
+        super();
+    }
 }
 
-export interface IsNullNotNullPredicate extends SqlAstNode {
-    checkWith: NullLiteral;
-    predicate: Predicate;
+@SqlAstNodeMarker(SqlAstNodeType.IsNullNotNullPredicate)
+export class IsNullNotNullPredicate extends SqlAstNode {
+    constructor(public predicate: Predicate, public checkWith: NullLiteral) {
+        super();
+    }
 }
 
-export interface BinaryPredicate extends SqlAstNode {
-    left: Predicate;
-    operator: ComparisonOperator;
-    right: Predicate | QuantifiedSelectStatement;
+@SqlAstNodeMarker(SqlAstNodeType.BinaryPredicate)
+export class BinaryPredicate extends SqlAstNode {
+    constructor(public left: Predicate, public operator: ComparisonOperator, public right: Predicate | QuantifiedSelectStatement) {
+        super();
+    }
 }
 
-export interface QuantifiedSelectStatement extends SqlAstNode {
-    quantifier: Quantifier;
-    statement: SelectStatement;
+@SqlAstNodeMarker(SqlAstNodeType.QuantifiedSelectStatement)
+export class QuantifiedSelectStatement extends SqlAstNode {
+    constructor(public quantifier: Quantifier, public statement: SelectStatement) {
+        super();
+    }
 }
 
-export interface BetweenPredicate extends SqlAstNode {
-    negate: boolean;
-    left: Predicate;
-    right: Predicate;
+@SqlAstNodeMarker(SqlAstNodeType.BetweenPredicate)
+export class BetweenPredicate extends SqlAstNode {
+    constructor(public left: Predicate, public right: Predicate, public negate: boolean = false) {
+        super();
+    }
 }
 
-export interface SoundsLikePredicate extends SqlAstNode {
-    left: Predicate;
-    right: Predicate;
+@SqlAstNodeMarker(SqlAstNodeType.SoundsLikePredicate)
+export class SoundsLikePredicate extends SqlAstNode {
+    constructor(public left: Predicate, public right: Predicate) {
+        super();
+    }
 }
 
-export interface LikePredicate extends SqlAstNode {
-    negate: boolean;
-    left: Predicate;
-    right: Predicate;
+@SqlAstNodeMarker(SqlAstNodeType.LikePredicate)
+export class LikePredicate extends SqlAstNode {
+    constructor(public left: Predicate, public right: Predicate, public negate: boolean = false) {
+        super();
+    }
 }
 
 export type RegexPredicate = NotImplemented;
 
-export interface AssignedExpressionAtom extends SqlAstNode {
-    variable?: string;
-    expression: ExpressionAtom;
+@SqlAstNodeMarker(SqlAstNodeType.AssignedExpressionAtom)
+export class AssignedExpressionAtom extends SqlAstNode {
+    constructor(public expression: ExpressionAtom, public variable?: SqlSymbol) {
+        super();
+    }
 }
 
 /*--------------------
@@ -298,103 +454,158 @@ export type ExpressionAtom =
 
 export type CollatedExpression = NotImplemented;
 
-export interface Variable extends SqlAstNode {
-    name: string;
+@SqlAstNodeMarker(SqlAstNodeType.Variable)
+export class Variable extends SqlAstNode {
+    constructor(public name: SqlSymbol) {
+        super();
+    }
 }
 
-export interface UnaryExpressionAtom extends SqlAstNode {
-    operator: UnaryOperator;
-    expression: ExpressionAtom;
+@SqlAstNodeMarker(SqlAstNodeType.UnaryExpressionAtom)
+export class UnaryExpressionAtom extends SqlAstNode {
+    constructor(public operator: UnaryOperator, public expression: ExpressionAtom) {
+        super();
+    }
 }
 
-export interface BinaryModifiedExpression extends SqlAstNode {
-    expression: ExpressionAtom;
+@SqlAstNodeMarker(SqlAstNodeType.BinaryModifiedExpression)
+export class BinaryModifiedExpression extends SqlAstNode {
+    constructor(public expression: ExpressionAtom) {
+        super();
+    }
 }
 
-export interface RowExpression extends SqlAstNode {
-    expressions: Expression[];
+@SqlAstNodeMarker(SqlAstNodeType.RowExpression)
+export class RowExpression extends SqlAstNode {
+    constructor(public expressions: Expression[]) {
+        super();
+    }
 }
 
-export interface IntervalExpression extends SqlAstNode {
-    expression: Expression;
-    intervalType: IntervalType;
+@SqlAstNodeMarker(SqlAstNodeType.IntervalExpression)
+export class IntervalExpression extends SqlAstNode {
+    constructor(public expression: Expression, public intervalType: IntervalType) {
+        super();
+    }
 }
 
-export interface BinaryExpressionAtom<TOperator extends BinaryOperator> {
-    left: ExpressionAtom;
-    operator: TOperator;
-    right: ExpressionAtom;
+@SqlAstNodeMarker(SqlAstNodeType.BinaryExpressionAtom)
+export class BinaryExpressionAtom<TOperator extends BinaryOperator> extends SqlAstNode {
+    constructor(public left: ExpressionAtom, public operator: TOperator, public right: ExpressionAtom) {
+        super();
+    }
 }
 
-export interface NestedSelectStatement extends SqlAstNode {
-    statement: SelectStatement;
+@SqlAstNodeMarker(SqlAstNodeType.NestedSelectStatement)
+export class NestedSelectStatement extends SqlAstNode {
+    constructor(public statement: SelectStatement) {
+        super();
+    }
 }
 
 // TODO: To be filled out
-export interface ExistsSelectStatement extends NestedSelectStatement {
+@SqlAstNodeMarker(SqlAstNodeType.ExistsSelectStatement)
+export class ExistsSelectStatement extends SqlAstNode {
+    constructor(public statement: SelectStatement) {
+        super();
+    }
 }
 
 export type SelectIntoExpression = SelectIntoFieldsExpression | SelectIntoDumpFileExpression | SelectIntoOutFileExpression;
 export type SelectIntoDumpFileExpression = NotImplemented;
 export type SelectIntoOutFileExpression = NotImplemented;
 
-export interface FromClause extends SqlAstNode {
-    tables: TableSource[];
+@SqlAstNodeMarker(SqlAstNodeType.FromClause)
+export class FromClause extends SqlAstNode {
     where?: WhereClause;
     groupBy?: GroupByClause;
     having?: Expression;
+
+    constructor(public tables: TableSource[]) {
+        super();
+    }
 }
 
-export interface TableSource extends SqlAstNode {
-    tableSourceItem: TableSourceItem;
+@SqlAstNodeMarker(SqlAstNodeType.TableSource)
+export class TableSource extends SqlAstNode {
     joins?: JoinClause[];
+
+    constructor(public tableSourceItem: TableSourceItem) {
+        super();
+    }
 }
 
 export type TableSourceItem = AliasedTerm<TableSpec> | AliasedTerm<NestedSelectStatement> | TableSource[];
 
-export interface TableSpec extends SqlAstNode {
-    tableName: string;
-    partitions?: string[]; // List of partition terms
+@SqlAstNodeMarker(SqlAstNodeType.TableSpec)
+export class TableSpec extends SqlAstNode {
+    partitions?: SqlSymbol[]; // List of partition terms
     indexHints?: IndexHint[];
+
+    constructor(public tableName: SqlSymbol) {
+        super();
+    }
 }
 
 export type IndexHint = NotImplemented;
 
-export interface WhereClause extends SqlAstNode {
-    expression: Expression;
+@SqlAstNodeMarker(SqlAstNodeType.WhereClause)
+export class WhereClause extends SqlAstNode {
+    constructor(public expression: Expression) {
+        super();
+    }
 }
 
-export interface GroupByClause extends SqlAstNode {
-    items: GroupByItem[];
-    rollup: boolean;
+@SqlAstNodeMarker(SqlAstNodeType.GroupByClause)
+export class GroupByClause extends SqlAstNode {
+    constructor(public items: GroupByItem[], public rollup: boolean = false) {
+        super();
+    }
 }
 
-export interface GroupByItem extends SqlAstNode {
-    expression: Expression;
-    descending: boolean;             // ASC | DESC
+@SqlAstNodeMarker(SqlAstNodeType.GroupByItem)
+export class GroupByItem extends SqlAstNode {
+    // descending: ASC | DESC
+    constructor(public expression: Expression, public descending: boolean = false) {
+        super();
+    }
 }
 
-export interface JoinClause extends SqlAstNode {
+@SqlAstNodeMarker(SqlAstNodeType.JoinClause)
+export class JoinClause extends SqlAstNode {
     joinType?: JoinType;
-    with: TableSourceItem;
     on?: Expression;
-    using?: string[];       // Using a list of column names within the scope of the tables
+    using?: SqlSymbol[];       // Using a list of column names within the scope of the tables
+
+    constructor(public joinWith: TableSourceItem) {
+        super();
+    }
 }
 
-export interface OrderByClause extends SqlAstNode {
-    expressions: OrderByExpression[];
+@SqlAstNodeMarker(SqlAstNodeType.OrderByClause)
+export class OrderByClause extends SqlAstNode {
+    constructor(public expressions: OrderByExpression[]) {
+        super();
+    }
 }
 
-export interface OrderByExpression extends SqlAstNode {
-    expression: Expression;
-    ascending: boolean;
+@SqlAstNodeMarker(SqlAstNodeType.OrderByExpression)
+export class OrderByExpression extends SqlAstNode {
+    constructor(public expression: Expression, public descending: boolean = false) {
+        super();
+    }
 }
 
-export interface LimitClause extends SqlAstNode {
-    offset: number;
-    limit: number;
+@SqlAstNodeMarker(SqlAstNodeType.LimitClause)
+export class LimitClause extends SqlAstNode {
+    constructor(public limit: number, public offset?: number) {
+        super();
+    }
 }
 
-export interface SelectIntoFieldsExpression extends SqlAstNode {
-    fields: string[];
+@SqlAstNodeMarker(SqlAstNodeType.SelectIntoFieldsExpression)
+export class SelectIntoFieldsExpression extends SqlAstNode {
+    constructor(public fields: SqlSymbol[]) {
+        super();
+    }
 }

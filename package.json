@@ -50,5 +50,9 @@
             "jsx"
         ],
         "collectCoverage": true
+    },
+    "dependencies": {
+        "jsymbol": "^0.2.2",
+        "reflect-metadata": "^0.1.12"
     }
 }

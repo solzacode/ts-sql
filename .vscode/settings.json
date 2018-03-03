@@ -4,7 +4,8 @@
         "Mixins",
         "Solza",
         "Truthy",
-        "astsql"
+        "astsql",
+        "jsymbol"
     ],
     "cSpell.ignorePaths": [
         "**/node_modules/**",
