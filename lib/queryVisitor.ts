@@ -31,9 +31,7 @@ export class QueryVisitor<TResult = any> {
 
     // Dispatcher
     protected visitNode(context: QueryContext<TResult>, node: ast.SqlAstNode): QueryContext<TResult> {
-        let type: ast.SqlAstNodeType = Reflect.getMetadata(ast.NodeTypeKey, this);
-
-        if (!node || type) {
+        if (!node || node.constructor.name !== node.getNodeType()) {
             throw Error("Node is of incorrect type");
         }
 
