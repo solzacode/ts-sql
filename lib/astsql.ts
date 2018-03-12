@@ -35,14 +35,14 @@ export type IntervalType =
     | "HOUR_MICROSECOND"
     | "DAY_MICROSECOND";
 export type JoinType = "INNER" | "CROSS" | "LEFT OUTER" | "RIGHT OUTER";  // Natural & straight joins not supported
-export enum AstSymbolType {
+export enum SqlSymbolType {
     Table,
     Field,
     Variable,
     Alias,
     Function
 }
-export enum SqlAstNodeType {
+export enum SqlNodeType {
     Undefined,
     NotImplemented,
     SqlRoot,
@@ -91,7 +91,7 @@ export enum SqlAstNodeType {
     SelectIntoFieldsExpression
 }
 export const NodeTypeKey = Symbol("SqlAst:NodeType");
-export const SqlAstNodeMarker = function(nodeType: SqlAstNodeType) {
+export const SqlNodeMarker = function(nodeType: SqlNodeType) {
     return function<TNode extends new(...args: any[]) => SqlAstNode>(constructor: TNode) {
         return class extends constructor {
             constructor(...args: any[]) {
@@ -106,25 +106,25 @@ export const SqlAstNodeMarker = function(nodeType: SqlAstNodeType) {
         };
     };
 };
-export function getSqlAstNodeType(node: SqlAstNode) {
+export function getSqlNodeType(node: SqlAstNode) {
     let type = Reflect.getMetadata(NodeTypeKey, node);
-    return SqlAstNodeType[type];
+    return SqlNodeType[type];
 }
 
 export type SqlSymbol<T = {}> = string | AstSymbol<T>;
 
 export abstract class SqlAstNode {
     getNodeType(): string {
-        return getSqlAstNodeType(this);
+        return getSqlNodeType(this);
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.NotImplemented)
+@SqlNodeMarker(SqlNodeType.NotImplemented)
 export class NotImplemented extends SqlAstNode {
     // Represents a non implemented feature
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.SqlRoot)
+@SqlNodeMarker(SqlNodeType.SqlRoot)
 export class SqlRoot extends SqlAstNode {
     constructor(public dialect: string, public statements: SqlStatement[] = []) {
         super();
@@ -171,7 +171,7 @@ export type LoadXmlStatement = NotImplemented;
 export type DoStatement = NotImplemented;
 export type HandlerStatement = NotImplemented;
 
-@SqlAstNodeMarker(SqlAstNodeType.SelectStatement)
+@SqlNodeMarker(SqlNodeType.SelectStatement)
 export class SelectStatement extends SqlAstNode {
     query: QueryIntoExpression | UnionGroupStatement;
     lock?: LockClause;
@@ -183,7 +183,7 @@ export class SelectStatement extends SqlAstNode {
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.QueryExpression)
+@SqlNodeMarker(SqlNodeType.QueryExpression)
 export class QueryExpression extends SqlAstNode {
     selectSpec?: SelectSpec[];
     selectAll?: SelectAll;          // If all is specified, then elements could be an empty array
@@ -199,7 +199,7 @@ export class QueryExpression extends SqlAstNode {
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.QueryIntoExpression)
+@SqlNodeMarker(SqlNodeType.QueryIntoExpression)
 export class QueryIntoExpression extends SqlAstNode {
     query: QueryExpression;
     into?: SelectIntoExpression;
@@ -211,7 +211,7 @@ export class QueryIntoExpression extends SqlAstNode {
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.UnionStatement)
+@SqlNodeMarker(SqlNodeType.UnionStatement)
 export class UnionStatement extends SqlAstNode {
     first: QueryExpression;
     unionType?: All | Distinct;
@@ -226,7 +226,7 @@ export class UnionStatement extends SqlAstNode {
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.UnionGroupStatement)
+@SqlNodeMarker(SqlNodeType.UnionGroupStatement)
 export class UnionGroupStatement extends SqlAstNode {
     unionType?: All | Distinct;
     unionLast?: QueryIntoExpression;
@@ -245,14 +245,14 @@ export type SelectElement =
     | AliasedTerm<AssignedTerm<Expression>>;
 
 // Represents table.*
-@SqlAstNodeMarker(SqlAstNodeType.AllColumns)
+@SqlNodeMarker(SqlNodeType.AllColumns)
 export class AllColumns extends SqlAstNode {
     constructor(public table: SqlSymbol) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.ColumnName)
+@SqlNodeMarker(SqlNodeType.ColumnName)
 export class ColumnName extends SqlAstNode {
     constructor(public name: SqlSymbol, public table?: SqlSymbol) {
         super();
@@ -269,14 +269,14 @@ export type SpecificFunction = CaseExpression | NotImplemented;
 export type AggregatedWindowFunction = NotImplemented;
 export type PasswordFunction = NotImplemented;
 
-@SqlAstNodeMarker(SqlAstNodeType.SimpleFunctionCall)
+@SqlNodeMarker(SqlNodeType.SimpleFunctionCall)
 export class SimpleFunctionCall extends SqlAstNode {
     constructor(public name: SqlSymbol, public args?: FunctionArgument[]) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.CaseExpression)
+@SqlNodeMarker(SqlNodeType.CaseExpression)
 export class CaseExpression extends SqlAstNode {
     branches: CaseBranchExpression[];
     elseBranch?: FunctionArgument;
@@ -288,7 +288,7 @@ export class CaseExpression extends SqlAstNode {
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.CaseBranchExpression)
+@SqlNodeMarker(SqlNodeType.CaseBranchExpression)
 export class CaseBranchExpression extends SqlAstNode {
     constructor(public expression: FunctionArgument, public result: FunctionArgument) {
         super();
@@ -301,21 +301,21 @@ export type FunctionArgument =
     | FunctionCall
     | Expression;
 
-@SqlAstNodeMarker(SqlAstNodeType.Constant)
+@SqlNodeMarker(SqlNodeType.Constant)
 export class Constant extends SqlAstNode {
     constructor(public value: ConstantType) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.AliasedTerm)
+@SqlNodeMarker(SqlNodeType.AliasedTerm)
 export class AliasedTerm<TTerm extends SqlAstNode> extends SqlAstNode {
     constructor(public term: TTerm, public alias?: SqlSymbol) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.AssignedTerm)
+@SqlNodeMarker(SqlNodeType.AssignedTerm)
 export class AssignedTerm<TTerm extends SqlAstNode> extends SqlAstNode {
     constructor(public value: TTerm, public variable?: SqlSymbol) {
         super();
@@ -328,21 +328,21 @@ export type Expression =
     | TruthyPredicate
     | Predicate;
 
-@SqlAstNodeMarker(SqlAstNodeType.NotExpression)
+@SqlNodeMarker(SqlNodeType.NotExpression)
 export class NotExpression extends SqlAstNode {
     constructor(public expression: Expression) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.BinaryExpression)
+@SqlNodeMarker(SqlNodeType.BinaryExpression)
 export class BinaryExpression<TOperator extends BinaryOperator> extends SqlAstNode {
     constructor(public left: Expression, public operator: TOperator, public right: Expression) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.TruthyPredicate)
+@SqlNodeMarker(SqlNodeType.TruthyPredicate)
 export class TruthyPredicate extends SqlAstNode {
     // predicate IS TRUE | predicate IS FALSE | predicate IS UNKNOWN
     // testValue?: boolean;    // TRUE | FALSE | UNKNOWN
@@ -361,7 +361,7 @@ export type Predicate =
     | RegexPredicate
     | AssignedExpressionAtom;
 
-@SqlAstNodeMarker(SqlAstNodeType.InPredicate)
+@SqlNodeMarker(SqlNodeType.InPredicate)
 export class InPredicate extends SqlAstNode {
     // negate: boolean;    // Default to false
     constructor(public predicate: Predicate, public target: SelectStatement | Expression[], public negate: boolean = false) {
@@ -369,42 +369,42 @@ export class InPredicate extends SqlAstNode {
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.IsNullNotNullPredicate)
+@SqlNodeMarker(SqlNodeType.IsNullNotNullPredicate)
 export class IsNullNotNullPredicate extends SqlAstNode {
     constructor(public predicate: Predicate, public checkWith: NullLiteral) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.BinaryPredicate)
+@SqlNodeMarker(SqlNodeType.BinaryPredicate)
 export class BinaryPredicate extends SqlAstNode {
     constructor(public left: Predicate, public operator: ComparisonOperator, public right: Predicate | QuantifiedSelectStatement) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.QuantifiedSelectStatement)
+@SqlNodeMarker(SqlNodeType.QuantifiedSelectStatement)
 export class QuantifiedSelectStatement extends SqlAstNode {
     constructor(public quantifier: Quantifier, public statement: SelectStatement) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.BetweenPredicate)
+@SqlNodeMarker(SqlNodeType.BetweenPredicate)
 export class BetweenPredicate extends SqlAstNode {
-    constructor(public left: Predicate, public right: Predicate, public negate: boolean = false) {
+    constructor(public operand: Predicate, public left: Predicate, public right: Predicate, public negate: boolean = false) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.SoundsLikePredicate)
+@SqlNodeMarker(SqlNodeType.SoundsLikePredicate)
 export class SoundsLikePredicate extends SqlAstNode {
     constructor(public left: Predicate, public right: Predicate) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.LikePredicate)
+@SqlNodeMarker(SqlNodeType.LikePredicate)
 export class LikePredicate extends SqlAstNode {
     constructor(public left: Predicate, public right: Predicate, public negate: boolean = false) {
         super();
@@ -413,7 +413,7 @@ export class LikePredicate extends SqlAstNode {
 
 export type RegexPredicate = NotImplemented;
 
-@SqlAstNodeMarker(SqlAstNodeType.AssignedExpressionAtom)
+@SqlNodeMarker(SqlNodeType.AssignedExpressionAtom)
 export class AssignedExpressionAtom extends SqlAstNode {
     constructor(public expression: ExpressionAtom, public variable?: SqlSymbol) {
         super();
@@ -454,49 +454,49 @@ export type ExpressionAtom =
 
 export type CollatedExpression = NotImplemented;
 
-@SqlAstNodeMarker(SqlAstNodeType.Variable)
+@SqlNodeMarker(SqlNodeType.Variable)
 export class Variable extends SqlAstNode {
     constructor(public name: SqlSymbol) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.UnaryExpressionAtom)
+@SqlNodeMarker(SqlNodeType.UnaryExpressionAtom)
 export class UnaryExpressionAtom extends SqlAstNode {
     constructor(public operator: UnaryOperator, public expression: ExpressionAtom) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.BinaryModifiedExpression)
+@SqlNodeMarker(SqlNodeType.BinaryModifiedExpression)
 export class BinaryModifiedExpression extends SqlAstNode {
     constructor(public expression: ExpressionAtom) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.RowExpression)
+@SqlNodeMarker(SqlNodeType.RowExpression)
 export class RowExpression extends SqlAstNode {
     constructor(public expressions: Expression[]) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.IntervalExpression)
+@SqlNodeMarker(SqlNodeType.IntervalExpression)
 export class IntervalExpression extends SqlAstNode {
     constructor(public expression: Expression, public intervalType: IntervalType) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.BinaryExpressionAtom)
+@SqlNodeMarker(SqlNodeType.BinaryExpressionAtom)
 export class BinaryExpressionAtom<TOperator extends BinaryOperator> extends SqlAstNode {
     constructor(public left: ExpressionAtom, public operator: TOperator, public right: ExpressionAtom) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.NestedSelectStatement)
+@SqlNodeMarker(SqlNodeType.NestedSelectStatement)
 export class NestedSelectStatement extends SqlAstNode {
     constructor(public statement: SelectStatement) {
         super();
@@ -504,7 +504,7 @@ export class NestedSelectStatement extends SqlAstNode {
 }
 
 // TODO: To be filled out
-@SqlAstNodeMarker(SqlAstNodeType.ExistsSelectStatement)
+@SqlNodeMarker(SqlNodeType.ExistsSelectStatement)
 export class ExistsSelectStatement extends SqlAstNode {
     constructor(public statement: SelectStatement) {
         super();
@@ -515,7 +515,7 @@ export type SelectIntoExpression = SelectIntoFieldsExpression | SelectIntoDumpFi
 export type SelectIntoDumpFileExpression = NotImplemented;
 export type SelectIntoOutFileExpression = NotImplemented;
 
-@SqlAstNodeMarker(SqlAstNodeType.FromClause)
+@SqlNodeMarker(SqlNodeType.FromClause)
 export class FromClause extends SqlAstNode {
     where?: WhereClause;
     groupBy?: GroupByClause;
@@ -526,7 +526,7 @@ export class FromClause extends SqlAstNode {
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.TableSource)
+@SqlNodeMarker(SqlNodeType.TableSource)
 export class TableSource extends SqlAstNode {
     joins?: JoinClause[];
 
@@ -537,7 +537,7 @@ export class TableSource extends SqlAstNode {
 
 export type TableSourceItem = AliasedTerm<TableSpec> | AliasedTerm<NestedSelectStatement> | TableSource[];
 
-@SqlAstNodeMarker(SqlAstNodeType.TableSpec)
+@SqlNodeMarker(SqlNodeType.TableSpec)
 export class TableSpec extends SqlAstNode {
     partitions?: SqlSymbol[]; // List of partition terms
     indexHints?: IndexHint[];
@@ -549,21 +549,21 @@ export class TableSpec extends SqlAstNode {
 
 export type IndexHint = NotImplemented;
 
-@SqlAstNodeMarker(SqlAstNodeType.WhereClause)
+@SqlNodeMarker(SqlNodeType.WhereClause)
 export class WhereClause extends SqlAstNode {
     constructor(public expression: Expression) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.GroupByClause)
+@SqlNodeMarker(SqlNodeType.GroupByClause)
 export class GroupByClause extends SqlAstNode {
     constructor(public items: GroupByItem[], public rollup: boolean = false) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.GroupByItem)
+@SqlNodeMarker(SqlNodeType.GroupByItem)
 export class GroupByItem extends SqlAstNode {
     // descending: ASC | DESC
     constructor(public expression: Expression, public descending: boolean = false) {
@@ -571,7 +571,7 @@ export class GroupByItem extends SqlAstNode {
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.JoinClause)
+@SqlNodeMarker(SqlNodeType.JoinClause)
 export class JoinClause extends SqlAstNode {
     joinType?: JoinType;
     on?: Expression;
@@ -582,28 +582,28 @@ export class JoinClause extends SqlAstNode {
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.OrderByClause)
+@SqlNodeMarker(SqlNodeType.OrderByClause)
 export class OrderByClause extends SqlAstNode {
     constructor(public expressions: OrderByExpression[]) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.OrderByExpression)
+@SqlNodeMarker(SqlNodeType.OrderByExpression)
 export class OrderByExpression extends SqlAstNode {
     constructor(public expression: Expression, public descending: boolean = false) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.LimitClause)
+@SqlNodeMarker(SqlNodeType.LimitClause)
 export class LimitClause extends SqlAstNode {
     constructor(public limit: number, public offset?: number) {
         super();
     }
 }
 
-@SqlAstNodeMarker(SqlAstNodeType.SelectIntoFieldsExpression)
+@SqlNodeMarker(SqlNodeType.SelectIntoFieldsExpression)
 export class SelectIntoFieldsExpression extends SqlAstNode {
     constructor(public fields: SqlSymbol[]) {
         super();

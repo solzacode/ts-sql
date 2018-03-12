@@ -2,10 +2,14 @@
     "cSpell.words": [
         "DISTINCTROW",
         "Mixins",
+        "Queryable",
         "Solza",
         "Truthy",
         "astsql",
-        "jsymbol"
+        "exjs",
+        "extjs",
+        "jsymbol",
+        "kobalicek"
     ],
     "cSpell.ignorePaths": [
         "**/node_modules/**",

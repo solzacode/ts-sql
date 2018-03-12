@@ -52,7 +52,7 @@
         "collectCoverage": true
     },
     "dependencies": {
-        "jsymbol": "^0.2.2",
+        "jsymbol": "^0.3.1",
         "reflect-metadata": "^0.1.12"
     }
 }

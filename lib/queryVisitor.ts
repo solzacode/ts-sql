@@ -1,36 +1,47 @@
 import * as ast from "./astsql";
 
-export interface QueryContext<TResult = any> {
-    parentNode?: ast.SqlAstNode;
+export interface QueryContext {
     currentNode: ast.SqlAstNode;
-    result?: TResult;
+    parentNode?: ast.SqlAstNode;
 }
 
-export interface QueryContextType<TResult> {
-    new(node: ast.SqlAstNode): QueryContext<TResult>;
+export interface ContextBuilder {
+    new (node: ast.SqlAstNode): QueryContext;
 }
 
-export class QueryVisitor<TResult = any> {
+class GenericQueryContext implements QueryContext {
+    public parentNode?: ast.SqlAstNode;
+    constructor(public currentNode: ast.SqlAstNode) {
+    }
+}
+
+export class QueryVisitor<TContext extends QueryContext = QueryContext> {
     public visitStarted: boolean;
+    private _contextBuilder: ContextBuilder;
 
-    constructor(public dialect: ast.SqlDialect, public query: ast.SqlRoot) {
+    constructor(public dialect: ast.SqlDialect, public query: ast.SqlRoot, contextBuilder?: ContextBuilder) {
         this.visitStarted = false;
+        this._contextBuilder = contextBuilder || GenericQueryContext;
+
+        if (this.dialect !== query.dialect) {
+            throw Error("Mismatched query dialects.");
+        }
     }
 
-    public visit(): TResult | undefined {
+    public visit(): TContext {
         if (this.visitStarted) {
             throw Error("Visit already initiated");
         }
 
-        let context: QueryContext<TResult> = { currentNode: this.query };
+        let context = this.buildContext();
         context = this.visitNode(context, this.query);
         this.visitStarted = true;
 
-        return context.result;
+        return context;
     }
 
     // Dispatcher
-    protected visitNode(context: QueryContext<TResult>, node: ast.SqlAstNode): QueryContext<TResult> {
+    protected visitNode(context: TContext, node: ast.SqlAstNode): TContext {
         if (!node || node.constructor.name !== node.getNodeType()) {
             throw Error("Node is of incorrect type");
         }
@@ -50,7 +61,7 @@ export class QueryVisitor<TResult = any> {
         return context;
     }
 
-    protected visitGenericNode(context: QueryContext<TResult>, node: ast.SqlAstNode): QueryContext<TResult> {
+    protected visitGenericNode(context: TContext, node: ast.SqlAstNode): TContext {
         let anyNode: any = node;
 
         for (let p in anyNode) {
@@ -68,7 +79,11 @@ export class QueryVisitor<TResult = any> {
         return context;
     }
 
-    private doVisitNode(context: QueryContext<TResult>, node: ast.SqlAstNode): QueryContext<TResult> {
+    protected buildContext(): TContext {
+        return <TContext> new this._contextBuilder(this.query);
+    }
+
+    private doVisitNode(context: TContext, node: ast.SqlAstNode): TContext {
         let nodeType = node.getNodeType();
         let visitorMethod = "visit" + nodeType;
         let visitor: any = this;
