@@ -213,33 +213,36 @@ export class QueryIntoExpression extends SqlAstNode {
 
 @SqlNodeMarker(SqlNodeType.UnionStatement)
 export class UnionStatement extends SqlAstNode {
-    first: QueryExpression;
+    unionWith: QueryExpression;
     unionType?: All | Distinct;
-    second: QueryExpression | UnionStatement;
 
-    constructor(first: QueryExpression, second: QueryExpression | UnionStatement, unionType: All | Distinct = "ALL") {
+    constructor(unionWith: QueryExpression, unionType: All | Distinct = "ALL") {
         super();
 
-        this.first = first;
-        this.second = second;
+        this.unionWith = unionWith;
         this.unionType = unionType;
     }
 }
 
 @SqlNodeMarker(SqlNodeType.UnionGroupStatement)
 export class UnionGroupStatement extends SqlAstNode {
+    unions?: UnionStatement[];
     unionType?: All | Distinct;
     unionLast?: QueryIntoExpression;
     orderBy?: OrderByClause;
     limit?: LimitClause;
 
-    constructor(public union: UnionStatement) {
+    constructor(public query: QueryExpression) {
         super();
     }
 }
 
 export type SelectElement =
     AllColumns
+    | ColumnName
+    | FunctionCall
+    | Expression
+    | AssignedTerm<Expression>
     | AliasedTerm<ColumnName>
     | AliasedTerm<FunctionCall>
     | AliasedTerm<AssignedTerm<Expression>>;
@@ -535,7 +538,9 @@ export class TableSource extends SqlAstNode {
     }
 }
 
-export type TableSourceItem = AliasedTerm<TableSpec> | AliasedTerm<NestedSelectStatement> | TableSource[];
+export type TableSourceItem =
+    TableSpec
+    | AliasedTerm<TableSpec | NestedSelectStatement>;
 
 @SqlNodeMarker(SqlNodeType.TableSpec)
 export class TableSpec extends SqlAstNode {

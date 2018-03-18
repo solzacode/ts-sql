@@ -33,9 +33,10 @@ export class QueryVisitor<TContext extends QueryContext = QueryContext> {
             throw Error("Visit already initiated");
         }
 
+        this.visitStarted = true;
+
         let context = this.buildContext();
         context = this.visitNode(context, this.query);
-        this.visitStarted = true;
 
         return context;
     }

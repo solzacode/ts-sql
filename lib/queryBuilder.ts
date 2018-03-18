@@ -1,11 +1,16 @@
 import * as ast from "./astsql";
 
 export interface PreparedQuery {
+    toSelect: ToSelectMethod;
     build: BuildMethod;
 }
 
+export interface BinaryPredicateBuilderMethod {
+    (left: string | ast.Predicate, right: string | ast.Predicate): ast.BinaryPredicate;
+}
+
 export interface IntoMethod {
-    (fields: string[]): PreparedQuery;
+    (...fields: string[]): PreparedQuery;
 }
 
 export interface LimitMethod {
@@ -13,11 +18,11 @@ export interface LimitMethod {
 }
 
 export interface OrderByMethod {
-    (expressions: ast.OrderByExpression[]): OrderedProjection;
+    (...expressions: ast.OrderByExpression[]): OrderedProjection;
 }
 
 export interface SelectMethod {
-    (element: ast.SelectElement | ast.SelectAll, ...moreElements: ast.SelectElement[]): Projection;
+    (element: string | ast.SelectElement | ast.SelectAll, ...moreElements: ast.SelectElement[]): Projection;
 }
 
 export interface FromMethod {
@@ -33,18 +38,23 @@ export interface WhereMethod {
 }
 
 export interface GroupByMethod {
-    (fields: string[] | ast.GroupByItem[]): GroupedQuerySource;
+    (...fields: (string | ast.GroupByItem)[]): GroupedQuerySource;
 }
 
 export interface HavingMethod {
     (condition: ast.Expression): GroupedAndFilteredQuerySource;
 }
 
-export interface BuildMethod {
+export interface ToSelectMethod {
     (): ast.SelectStatement;
 }
 
+export interface BuildMethod {
+    (): ast.SqlRoot;
+}
+
 export interface QueryBuilder {
+    dialect: ast.SqlDialect;
     query(): Queryable;
 }
 
@@ -82,6 +92,7 @@ export interface Projection extends PreparedQuery {
 }
 
 export interface OrderedProjection extends PreparedQuery {
+    orderBy: OrderByMethod;
     into: IntoMethod;
     limit: LimitMethod;
 }
@@ -91,10 +102,9 @@ export interface LimitedProjection extends PreparedQuery {
 }
 
 export interface QueryElementsBuilder {
-    func(name: string, funcArgs?: ast.FunctionArgument[]): ast.SimpleFunctionCall;
+    func(name: string, ...funcArgs: (string | ast.FunctionArgument)[]): ast.SimpleFunctionCall;
     column(name: string, table?: string): ast.ColumnName;
-    literal(value: ast.ConstantType): ast.Constant;
-    truthy(predicate: ast.Predicate, negate?: boolean): ast.TruthyPredicate;
+    literal(value: ast.ConstantType): ast.Constant | ast.AliasedTerm<ast.Constant>;
     variable(name: string): ast.Variable;
     exists(statement: ast.SelectStatement): ast.ExistsSelectStatement;
     nested(statement: ast.SelectStatement): ast.NestedSelectStatement;
@@ -108,141 +118,318 @@ export interface ExpressionBuilder {
 }
 
 export interface PredicateBuilder {
+    // Binary predicate builders
+    equals: BinaryPredicateBuilderMethod;
+    greater: BinaryPredicateBuilderMethod;
+    less: BinaryPredicateBuilderMethod;
+    greaterOrEquals: BinaryPredicateBuilderMethod;
+    lessOrEquals: BinaryPredicateBuilderMethod;
+    notEquals: BinaryPredicateBuilderMethod;
+    nullSafeEquals: BinaryPredicateBuilderMethod;
+
     isTrue(predicate: ast.Predicate): ast.TruthyPredicate;
     isFalse(predicate: ast.Predicate): ast.TruthyPredicate;
     isUnknown(predicate: ast.Predicate): ast.TruthyPredicate;
-    in(predicate: ast.Predicate, target: ast.SelectStatement): ast.InPredicate;
+    in(predicate: ast.Predicate, target: ast.SelectStatement | ast.Expression[]): ast.InPredicate;
+    notIn(predicate: ast.Predicate, target: ast.SelectStatement | ast.Expression[]): ast.InPredicate;
     isNull(predicate: ast.Predicate): ast.IsNullNotNullPredicate;
     isNotNull(predicate: ast.Predicate): ast.IsNullNotNullPredicate;
 
     binaryPredicate(left: ast.Predicate, operator: ast.ComparisonOperator, right: ast.Predicate): ast.BinaryPredicate;
-    equals(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate;
-    greater(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate;
-    less(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate;
-    greaterOrEquals(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate;
-    lessOrEquals(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate;
-    notEquals(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate;
-    nullSafeEquals(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate;
 
-    between(left: ast.Predicate, right: ast.Predicate): ast.BetweenPredicate;
-    notBetween(left: ast.Predicate, right: ast.Predicate): ast.BetweenPredicate;
+    between(operand: ast.Predicate, start: ast.Predicate, end: ast.Predicate): ast.BetweenPredicate;
+    notBetween(operand: ast.Predicate, start: ast.Predicate, end: ast.Predicate): ast.BetweenPredicate;
 
     soundsLike(left: ast.Predicate, right: ast.Predicate): ast.SoundsLikePredicate;
     like(left: ast.Predicate, right: ast.Predicate): ast.LikePredicate;
     notLike(left: ast.Predicate, right: ast.Predicate): ast.LikePredicate;
 }
 
-class SelectStatementBuilderImpl implements Queryable {
-    statement: Partial<ast.SelectStatement>;
+class QueryableImpl implements
+    Queryable,
+    QuerySource,
+    FilteredQuerySource,
+    GroupedQuerySource,
+    GroupedAndFilteredQuerySource,
+    Projection,
+    OrderedProjection,
+    LimitedProjection,
+    PreparedQuery {
+    // Begin implementation
+    statement: ast.SelectStatement;
 
-    constructor(public queryBuilder: QueryBuilder) {
-        this.statement = { };
+    constructor(public queryBuilder: QueryBuilderBase) {
+        this.statement = new ast.SelectStatement(new ast.QueryIntoExpression(new ast.QueryExpression()));
     }
 
     select: SelectMethod = (element, ...moreElements) => {
-        throw Error("Not implemented");
+        const all: ast.SelectAll = "*";
+        let query = this.statement.query.query;
+
+        if (element === all) {
+            query.selectAll = all;
+            query.elements = moreElements;
+        } else {
+            query.elements = [typeof element === "string" ? this.queryBuilder.column(element) : element].concat(moreElements);
+        }
+
+        return this;
     }
 
     from: FromMethod = (table, alias?) => {
-        throw Error("Not implemented");
+        let query = this.statement.query.query;
+        let tableSourceItems: ast.TableSourceItem[] = [];
+
+        if (typeof table === "string") {
+            let tableSpec = new ast.TableSpec(table);
+            tableSourceItems.push(alias ? new ast.AliasedTerm(tableSpec, alias) : tableSpec);
+        } else {
+            if (!alias) {
+                throw Error("Alias required for nested select statements");
+            } else {
+                tableSourceItems.push(new ast.AliasedTerm(<ast.NestedSelectStatement> table, alias));
+            }
+        }
+
+        query.from = new ast.FromClause(tableSourceItems.map(item => new ast.TableSource(item)));
+        return this;
+    }
+
+    join: JoinMethod = (table, alias, on) => {
+        return this.buildJoinClause(table, alias, on, "INNER");
+    }
+
+    lefJoin: JoinMethod = (table, alias, on) => {
+        return this.buildJoinClause(table, alias, on, "LEFT OUTER");
+    }
+
+    rightJoin: JoinMethod = (table, alias, on) => {
+        return this.buildJoinClause(table, alias, on, "RIGHT OUTER");
+    }
+
+    where: WhereMethod = (expression) => {
+        let query = this.statement.query.query;
+
+        if (query.from) {
+            query.from.where = new ast.WhereClause(expression);
+        }
+
+        return this;
+    }
+
+    groupBy: GroupByMethod = (...fields: (string | ast.GroupByItem)[]) => {
+        let groupByClause = new ast.GroupByClause(fields.map(f => typeof f === "string" ? new ast.GroupByItem(new ast.ColumnName(f)) : f));
+
+        if (this.statement.query.query.from) {
+            this.statement.query.query.from.groupBy = groupByClause;
+        } else {
+            throw Error("Can't group anything");
+        }
+
+        return this;
+    }
+
+    having: HavingMethod = (condition) => {
+        if (this.statement.query.query.from) {
+            this.statement.query.query.from.having = condition;
+        } else {
+            throw Error("Invalid use of 'having'");
+        }
+
+        return this;
+    }
+
+    orderBy: OrderByMethod = (...expressions: ast.OrderByExpression[]) => {
+        this.statement.query.query.orderBy = new ast.OrderByClause(expressions);
+        return this;
+    }
+
+    limit: LimitMethod = (limit: number, offset?: number) => {
+        this.statement.query.query.limit = new ast.LimitClause(limit, offset);
+        return this;
+    }
+
+    into: IntoMethod = (...fields: string[]) => {
+        throw Error("Into is not yet implemented");
+    }
+
+    toSelect: ToSelectMethod = () => {
+        return (<ast.SelectStatement> this.statement);
+    }
+
+    build: BuildMethod = () => {
+        return new ast.SqlRoot(this.queryBuilder.dialect, [this.toSelect()]);
+    }
+
+    private buildJoinClause(table: string | ast.NestedSelectStatement, alias: string, on: ast.Expression, joinType: ast.JoinType) {
+        let tableSpec = new ast.AliasedTerm(typeof table === "string" ? new ast.TableSpec(table) : table);
+        let joinPart = new ast.JoinClause(tableSpec);
+        joinPart.joinType = joinType;
+        joinPart.on = on;
+
+        if (this.statement.query.query.from !== undefined) {
+            let tables = this.statement.query.query.from.tables;
+            let lastTable = tables[tables.length - 1];
+            lastTable.joins = lastTable.joins ? lastTable.joins.concat(joinPart) : [joinPart];
+        } else {
+            throw Error("Can't join with anything meaningful");
+        }
+
+        return this;
     }
 }
 
 export class QueryBuilderBase implements QueryBuilder, QueryElementsBuilder, ExpressionBuilder, PredicateBuilder {
     constructor(public dialect: ast.SqlDialect) { }
 
-    func(name: string, funcArgs?: ast.FunctionArgument[] | undefined): ast.SimpleFunctionCall {
-        throw new Error("Method not implemented.");
+    alias(node: ast.SqlAstNode, aliasName: string) {
+        return new ast.AliasedTerm(node, aliasName);
     }
-    column(name: string, table?: string | undefined): ast.ColumnName {
-        throw new Error("Method not implemented.");
+
+    func(name: string, ...funcArgs: (string | ast.FunctionArgument)[]): ast.SimpleFunctionCall {
+        return new ast.SimpleFunctionCall(name, funcArgs.map(f => typeof f === "string" ? this.column(f) : f));
     }
-    literal(value: ast.ConstantType): ast.Constant {
-        throw new Error("Method not implemented.");
+
+    column(name: string, table?: string): ast.ColumnName {
+        let lastDot = name.lastIndexOf(".");
+        if (lastDot !== -1) {
+            if (table) {
+                throw Error("Invalid syntax for column name");
+            } else {
+                table = name.substr(0, lastDot);
+                name = name.substr(lastDot + 1);
+
+                if (!name || name !== "") {
+                    throw Error("Invalid syntax for column name");
+                }
+            }
+        }
+
+        return new ast.ColumnName(name, table);
     }
-    truthy(predicate: ast.Predicate, negate?: boolean | undefined): ast.TruthyPredicate {
-        throw new Error("Method not implemented.");
+
+    literal(value: ast.ConstantType, alias?: string): ast.Constant | ast.AliasedTerm<ast.Constant> {
+        let constant = new ast.Constant(value);
+        return alias ? new ast.AliasedTerm<ast.Constant>(constant, alias) : constant;
     }
+
     variable(name: string): ast.Variable {
-        throw new Error("Method not implemented.");
+        return new ast.Variable(name);
     }
+
     exists(statement: ast.SelectStatement): ast.ExistsSelectStatement {
-        throw new Error("Method not implemented.");
+        return new ast.ExistsSelectStatement(statement);
     }
+
     nested(statement: ast.SelectStatement): ast.NestedSelectStatement {
-        throw new Error("Method not implemented.");
+        return new ast.NestedSelectStatement(statement);
     }
+
     not(expression: ast.Expression): ast.NotExpression {
-        throw new Error("Method not implemented.");
+        return new ast.NotExpression(expression);
     }
+
     and(left: ast.Expression, right: ast.Expression): ast.BinaryExpression<ast.LogicalOperator> {
-        throw new Error("Method not implemented.");
+        return new ast.BinaryExpression<ast.LogicalOperator>(left, "AND", right);
     }
+
     or(left: ast.Expression, right: ast.Expression): ast.BinaryExpression<ast.LogicalOperator> {
-        throw new Error("Method not implemented.");
+        return new ast.BinaryExpression<ast.LogicalOperator>(left, "OR", right);
     }
+
     xor(left: ast.Expression, right: ast.Expression): ast.BinaryExpression<ast.LogicalOperator> {
-        throw new Error("Method not implemented.");
+        return new ast.BinaryExpression<ast.LogicalOperator>(left, "XOR", right);
     }
+
     isTrue(predicate: ast.Predicate): ast.TruthyPredicate {
-        throw new Error("Method not implemented.");
+        return new ast.TruthyPredicate(predicate, false, true);
     }
+
     isFalse(predicate: ast.Predicate): ast.TruthyPredicate {
-        throw new Error("Method not implemented.");
+        return new ast.TruthyPredicate(predicate, false, false);
     }
+
     isUnknown(predicate: ast.Predicate): ast.TruthyPredicate {
         throw new Error("Method not implemented.");
     }
-    in(predicate: ast.Predicate, target: ast.SelectStatement): ast.InPredicate {
-        throw new Error("Method not implemented.");
+
+    in(predicate: ast.Predicate, target: ast.SelectStatement | ast.Expression[]): ast.InPredicate {
+        return new ast.InPredicate(predicate, target);
     }
+
+    notIn(predicate: ast.Predicate, target: ast.SelectStatement | ast.Expression[]): ast.InPredicate {
+        return new ast.InPredicate(predicate, target, true);
+    }
+
     isNull(predicate: ast.Predicate): ast.IsNullNotNullPredicate {
-        throw new Error("Method not implemented.");
+        return new ast.IsNullNotNullPredicate(predicate, "NULL");
     }
+
     isNotNull(predicate: ast.Predicate): ast.IsNullNotNullPredicate {
-        throw new Error("Method not implemented.");
+        return new ast.IsNullNotNullPredicate(predicate, "NOT NULL");
     }
+
     binaryPredicate(left: ast.Predicate, operator: ast.ComparisonOperator, right: ast.Predicate): ast.BinaryPredicate {
-        throw new Error("Method not implemented.");
+        return new ast.BinaryExpression(left, operator, right);
     }
-    equals(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate {
-        throw new Error("Method not implemented.");
+
+    equals: BinaryPredicateBuilderMethod = (left, right) => {
+        return this.buildBinaryPredicate(left, "=", right);
     }
-    greater(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate {
-        throw new Error("Method not implemented.");
+
+    greater: BinaryPredicateBuilderMethod = (left, right) => {
+        return this.buildBinaryPredicate(left, ">", right);
     }
-    less(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate {
-        throw new Error("Method not implemented.");
+
+    less: BinaryPredicateBuilderMethod = (left, right) => {
+        return this.buildBinaryPredicate(left, "<", right);
     }
-    greaterOrEquals(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate {
-        throw new Error("Method not implemented.");
+
+    greaterOrEquals: BinaryPredicateBuilderMethod = (left, right) => {
+        return this.buildBinaryPredicate(left, ">=", right);
     }
-    lessOrEquals(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate {
-        throw new Error("Method not implemented.");
+
+    lessOrEquals: BinaryPredicateBuilderMethod = (left, right) => {
+        return this.buildBinaryPredicate(left, "<=", right);
     }
-    notEquals(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate {
-        throw new Error("Method not implemented.");
+
+    notEquals: BinaryPredicateBuilderMethod = (left, right) => {
+        return this.buildBinaryPredicate(left, "!=", right);
     }
-    nullSafeEquals(left: ast.Predicate, right: ast.Predicate): ast.BinaryPredicate {
-        throw new Error("Method not implemented.");
+
+    nullSafeEquals: BinaryPredicateBuilderMethod = (left, right) => {
+        return this.buildBinaryPredicate(left, "<=>", right);
     }
-    between(left: ast.Predicate, right: ast.Predicate): ast.BetweenPredicate {
-        throw new Error("Method not implemented.");
+
+    between(operand: ast.Predicate, start: ast.Predicate, end: ast.Predicate): ast.BetweenPredicate {
+        return new ast.BetweenPredicate(operand, start, end);
     }
-    notBetween(left: ast.Predicate, right: ast.Predicate): ast.BetweenPredicate {
-        throw new Error("Method not implemented.");
+
+    notBetween(operand: ast.Predicate, left: ast.Predicate, right: ast.Predicate): ast.BetweenPredicate {
+        return new ast.BetweenPredicate(operand, left, right, true);
     }
+
     soundsLike(left: ast.Predicate, right: ast.Predicate): ast.SoundsLikePredicate {
-        throw new Error("Method not implemented.");
+        return new ast.SoundsLikePredicate(left, right);
     }
+
     like(left: ast.Predicate, right: ast.Predicate): ast.LikePredicate {
-        throw new Error("Method not implemented.");
+        return new ast.LikePredicate(left, right);
     }
+
     notLike(left: ast.Predicate, right: ast.Predicate): ast.LikePredicate {
-        throw new Error("Method not implemented.");
+        return new ast.LikePredicate(left, right, true);
     }
+
     query(): Queryable {
-        return new SelectStatementBuilderImpl(this);
+        return new QueryableImpl(this);
+    }
+
+    private buildBinaryPredicate(left: string | ast.Predicate, operator: ast.ComparisonOperator, right: string | ast.Predicate) {
+        let lp = typeof left === "string" ? this.column(left) : left;
+        let rp = typeof right === "string" ? this.column(right) : right;
+
+        return new ast.BinaryPredicate(lp, operator, rp);
     }
 }
 
