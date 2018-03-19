@@ -18,7 +18,7 @@ export class MySQLAstPrinter extends QueryVisitor {
     }
 
     public visitGenericNode(context: QueryContext, node: SqlAstNode) {
-        console.log(this.getIndentation(context) + node.getNodeType());
+        console.log(this.getIndentation(context) + SqlAstNode.getNodeType(node));
 
         return super.visitGenericNode(context, node);
     }

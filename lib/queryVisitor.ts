@@ -43,10 +43,6 @@ export class QueryVisitor<TContext extends QueryContext = QueryContext> {
 
     // Dispatcher
     protected visitNode(context: TContext, node: ast.SqlAstNode): TContext {
-        if (!node || node.constructor.name !== node.getNodeType()) {
-            throw Error("Node is of incorrect type");
-        }
-
         let previousParent: ast.SqlAstNode | undefined = context.parentNode;
         let previousCurrent: ast.SqlAstNode = context.currentNode;
 
@@ -66,14 +62,17 @@ export class QueryVisitor<TContext extends QueryContext = QueryContext> {
         let anyNode: any = node;
 
         for (let p in anyNode) {
-            if (anyNode[p] instanceof ast.SqlAstNode) {
+            if (this.shouldVisitNode(anyNode[p])) {
                 context = this.visitNode(context, anyNode[p]);
             } else if (Array.isArray(anyNode[p])) {
                 for (let elem of anyNode[p]) {
-                    if (elem instanceof ast.SqlAstNode) {
+                    if (this.shouldVisitNode(elem)) {
                         context = this.visitNode(context, elem);
                     }
                 }
+            } else {
+                // throw Error("Unknown element requested to be visited");
+                // console.log(`WARNING: Skipping visiting unknown element ${p}`);
             }
         }
 
@@ -85,7 +84,7 @@ export class QueryVisitor<TContext extends QueryContext = QueryContext> {
     }
 
     private doVisitNode(context: TContext, node: ast.SqlAstNode): TContext {
-        let nodeType = node.getNodeType();
+        let nodeType = ast.SqlAstNode.getNodeType(node);
         let visitorMethod = "visit" + nodeType;
         let visitor: any = this;
 
@@ -94,5 +93,9 @@ export class QueryVisitor<TContext extends QueryContext = QueryContext> {
         }
 
         return this.visitGenericNode(context, node);
+    }
+
+    private shouldVisitNode(node: any): boolean {
+        return node && (node instanceof ast.SqlAstNode || node.nodeType);
     }
 }

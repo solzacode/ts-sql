@@ -299,7 +299,7 @@ export class QueryBuilderBase implements QueryBuilder, QueryElementsBuilder, Exp
                 table = name.substr(0, lastDot);
                 name = name.substr(lastDot + 1);
 
-                if (!name || name !== "") {
+                if (!name || name === "") {
                     throw Error("Invalid syntax for column name");
                 }
             }

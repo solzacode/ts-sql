@@ -2,37 +2,29 @@ import * as ast from './astsql';
 import { MySQLQueryBuilder } from './queryBuilder';
 import { MySQLQueryCompiler } from './queryCompiler';
 import { MySQLAstPrinter } from './astPrinter';
+import { QuerySerializer } from './querySerializer';
 
-// let qb = new MySQLQueryBuilder();
-// let c = qb.equals(qb.column("o.string_field_1"), qb.column("ol.string_field_2"));
-// let sb = qb.query();
-// let query = sb
-//   .from("raw_table_10", "ol")
-//   .join("raw_table_9", "o", c)
-//   .join("raw_table_1", "a", c)
-//   .where(c)
-//   .groupBy(["ol.string_field_5"])
-//   .select("*")
-//   .build();
+let serializer = new QuerySerializer();
 
-// // qb.select(qb.column("accounts.f_id", "accountId"));
+let qb = new MySQLQueryBuilder();
+let c = qb.equals(qb.column("o.string_field_1"), qb.column("ol.string_field_2"));
+let sb = qb.query();
+let query = sb
+  .from("raw_table_10", "ol")
+  .join("raw_table_9", "o", c)
+  .join("raw_table_1", "a", c)
+  .where(c)
+  .groupBy("ol.string_field_5")
+  .select("*")
+  .build();
 
-// // qb.select("*");
-// // qb.select(qb.column("accounts.*"), qb.alias(qb.func("SUM", qb.column("accounts.mrr")), "SumOfMrr"));
+console.log(serializer.serialize(query));
 
-// // let query = qb.build();
-// // console.log(JSON.stringify(query));
+let qc = new MySQLQueryCompiler(query);
+console.log(qc.compile());
 
-// // // let qc = new MySQLQueryCompiler();
-// // // console.log(qc.compile(qb.query));
-
-// let obj = new ast.Variable("@myVar");
-// console.log(obj.constructor.name);
-// console.log(obj.getNodeType());
-// console.log(obj.constructor.name === obj.getNodeType());
-
-// let visitor = new MySQLAstPrinter(new ast.SqlRoot("MySQL", [query]));
-// visitor.visit();
+let visitor = new MySQLAstPrinter(new ast.SqlRoot("MySQL", [query]));
+visitor.visit();
 
 /***
  * SELECT ol.string_field_5, SUM(ol.decimal_field_4)
@@ -53,12 +45,12 @@ import { MySQLAstPrinter } from './astPrinter';
  *  .select("ol_string_field_5", qb.func("SUM", "ol.decimal_field_4"))
  */
 
-let qb = new MySQLQueryBuilder();
-let query = qb.query()
+qb = new MySQLQueryBuilder();
+let qq = qb.query()
     .from("accounts", "a")
     .where(qb.equals(qb.column("id"), qb.literal(1)))
     .select("*", qb.literal("hello", "h"), qb.literal(42), qb.literal("NULL"));
-let q = query.build();
+let q = qq.build();
 
 let q1 = qb.query()
     .from("raw_table_10", "ol")
@@ -77,12 +69,14 @@ printer.visit();
 let compiler = new MySQLQueryCompiler(q);
 console.log(compiler.compile());
 
-printer = new MySQLAstPrinter(q1);
-printer.visit();
+let q2 = qb.query().select("*").build();
+let json = serializer.serialize(q2);
 
-let q1json = JSON.stringify(q1);
-let q2 = JSON.parse(q1json);
+console.log(json);
 
-console.log(q1json);
+q2 = serializer.deserialize(json);
 printer = new MySQLAstPrinter(q2);
 printer.visit();
+
+compiler = new MySQLQueryCompiler(q2);
+console.log(compiler.compile());

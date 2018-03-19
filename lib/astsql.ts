@@ -94,6 +94,8 @@ export const NodeTypeKey = Symbol("SqlAst:NodeType");
 export const SqlNodeMarker = function(nodeType: SqlNodeType) {
     return function<TNode extends new(...args: any[]) => SqlAstNode>(constructor: TNode) {
         return class extends constructor {
+            nodeType: SqlNodeType;
+
             constructor(...args: any[]) {
                 super(...args);
 
@@ -101,6 +103,7 @@ export const SqlNodeMarker = function(nodeType: SqlNodeType) {
                     throw Error("Invalid node type found");
                 }
 
+                this.nodeType = nodeType;
                 Reflect.defineMetadata(NodeTypeKey, nodeType, this);
             }
         };
@@ -114,8 +117,17 @@ export function getSqlNodeType(node: SqlAstNode) {
 export type SqlSymbol<T = {}> = string | AstSymbol<T>;
 
 export abstract class SqlAstNode {
-    getNodeType(): string {
-        return getSqlNodeType(this);
+    static getNodeType(node: SqlAstNode): string {
+        if (node instanceof SqlAstNode) {
+            return getSqlNodeType(node);
+        }
+
+        let anyNode: any = node;
+        if (anyNode.nodeType) {
+            return SqlNodeType[anyNode.nodeType];
+        }
+
+        throw Error("Node type not found.");
     }
 }
 
