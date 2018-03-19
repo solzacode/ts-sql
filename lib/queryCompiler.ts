@@ -11,7 +11,7 @@ export class CompilationContext implements QueryContext {
     }
 }
 
-export interface VisitMethod<TNode extends ast.SqlAstNode = ast.SqlAstNode> {
+export interface CompileMethod<TNode extends ast.SqlAstNode = ast.SqlAstNode> {
     (context: CompilationContext, node: TNode): CompilationContext;
 }
 
@@ -29,7 +29,7 @@ export class QueryCompiler extends QueryVisitor<CompilationContext> {
         return context.queryString;
     }
 
-    protected visitQueryExpression(context: CompilationContext, node: ast.QueryExpression) {
+    protected visitQueryExpression: CompileMethod<ast.QueryExpression> = (context, node) => {
         let query: string = "SELECT ";
         let elementStrings: string[] = [];
 
@@ -47,7 +47,7 @@ export class QueryCompiler extends QueryVisitor<CompilationContext> {
         return context;
     }
 
-    protected visitConstant(context: CompilationContext, node: ast.Constant) {
+    protected visitConstant: CompileMethod<ast.Constant> = (context, node) => {
         if (node.value !== "NULL" && node.value !== "NOT NULL" && typeof node.value === "string") {
             context.queryString = "'" + node.value + "'";
         } else {
@@ -57,30 +57,75 @@ export class QueryCompiler extends QueryVisitor<CompilationContext> {
         return context;
     }
 
-    protected visitFromClause(context: CompilationContext, node: ast.FromClause) {
+    protected visitFromClause: CompileMethod<ast.FromClause> = (context, node) => {
         let fromClause = node.tables.map(t => this.visitNode(context, t).queryString).join(", ");
-        context.queryString = "FROM " + fromClause;
+        fromClause = "FROM " + fromClause;
 
         if (node.where) {
-            context.queryString += "\n" + this.visitNode(context, node.where).queryString;
+            fromClause += "\n" + this.visitNode(context, node.where).queryString;
         }
+
+        if (node.groupBy) {
+            fromClause += "\n" + this.visitNode(context, node.groupBy).queryString;
+        }
+
+        if (node.having) {
+            fromClause += "\n HAVING " + this.visitNode(context, node.having).queryString;
+        }
+
+        context.queryString = fromClause;
+        return context;
+    }
+
+    protected visitTableSource: CompileMethod<ast.TableSource> = (context, node) => {
+        let table = this.visitNode(context, node.tableSourceItem).queryString;
+        let joins = node.joins ? node.joins.map(j => this.visitNode(context, j).queryString) : [];
+
+        joins = [table].concat(joins);
+        context.queryString = joins.join("\n");
 
         return context;
     }
 
-    protected visitTableSpec(context: CompilationContext, node: ast.TableSpec) {
+    protected visitJoinClause: CompileMethod<ast.JoinClause> = (context, node) => {
+        let joinClause = (node.joinType ? node.joinType + " " : "") + "JOIN ";
+        joinClause += this.visitNode(context, node.joinWith).queryString;
+
+        if (node.on) {
+            joinClause += " ON " + this.visitNode(context, node.on).queryString;
+        }
+
+        context.queryString = joinClause;
+        return context;
+    }
+
+    protected visitTableSpec: CompileMethod<ast.TableSpec> = (context, node) => {
         context.queryString = node.tableName.toString();
         return context;
     }
 
-    protected visitAliasedTerm<TTerm extends ast.SqlAstNode = ast.SqlAstNode>(context: CompilationContext, node: ast.AliasedTerm<TTerm>) {
+    protected visitGroupByClause: CompileMethod<ast.GroupByClause> = (context, node) => {
+        let groupByClause = "GROUP BY " + node.items.map(i => this.visitNode(context, i).queryString).join(", ");
+
+        context.queryString = groupByClause;
+        return context;
+    }
+
+    protected visitAliasedTerm: CompileMethod< ast.AliasedTerm<ast.SqlAstNode>> = (context, node) => {
         let termQuery = this.visitNode(context, node.term).queryString;
         context.queryString = node.alias ?  "(" + termQuery + ") AS " + node.alias : termQuery;
 
         return context;
     }
 
-    protected visitBinaryPredicate(context: CompilationContext, node: ast.BinaryPredicate): CompilationContext {
+    protected visitSimpleFunctionCall: CompileMethod<ast.SimpleFunctionCall> = (context, node) => {
+        let func = node.name + "(" + (node.args || []).map(a => this.visitNode(context, a).queryString).join(", ") + ")";
+
+        context.queryString = func;
+        return context;
+    }
+
+    protected visitBinaryPredicate: CompileMethod<ast.BinaryPredicate> = (context, node) => {
         context.queryString =
             "("
             + this.visitNode(context, node.left).queryString
@@ -93,17 +138,17 @@ export class QueryCompiler extends QueryVisitor<CompilationContext> {
         return context;
     }
 
-    protected visitColumnName: VisitMethod<ast.ColumnName> = (context, node) => {
+    protected visitColumnName: CompileMethod<ast.ColumnName> = (context, node) => {
         context.queryString = node.table ? node.table.toString() + "." + node.name.toString() : node.name.toString();
         return context;
     }
 
-    protected visitWhereClause: VisitMethod<ast.WhereClause> = (context, node) => {
+    protected visitWhereClause: CompileMethod<ast.WhereClause> = (context, node) => {
         context.queryString = "WHERE " + this.visitNode(context, node.expression).queryString;
         return context;
     }
 
-    protected visitBinaryExpression: VisitMethod<ast.BinaryExpression<ast.BinaryOperator>> = (context, node) => {
+    protected visitBinaryExpression: CompileMethod<ast.BinaryExpression<ast.BinaryOperator>> = (context, node) => {
         context.queryString =
             "("
             + this.visitNode(context, node.left).queryString

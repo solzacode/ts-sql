@@ -262,7 +262,7 @@ class QueryableImpl implements
     }
 
     private buildJoinClause(table: string | ast.NestedSelectStatement, alias: string, on: ast.Expression, joinType: ast.JoinType) {
-        let tableSpec = new ast.AliasedTerm(typeof table === "string" ? new ast.TableSpec(table) : table);
+        let tableSpec = new ast.AliasedTerm(typeof table === "string" ? new ast.TableSpec(table) : table, alias);
         let joinPart = new ast.JoinClause(tableSpec);
         joinPart.joinType = joinType;
         joinPart.on = on;

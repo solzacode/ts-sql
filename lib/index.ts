@@ -18,13 +18,13 @@ let query = sb
   .select("*")
   .build();
 
-console.log(serializer.serialize(query));
+// console.log(serializer.serialize(query));
 
 let qc = new MySQLQueryCompiler(query);
 console.log(qc.compile());
 
 let visitor = new MySQLAstPrinter(new ast.SqlRoot("MySQL", [query]));
-visitor.visit();
+// visitor.visit();
 
 /***
  * SELECT ol.string_field_5, SUM(ol.decimal_field_4)
@@ -64,9 +64,12 @@ let q1 = qb.query()
 // let q = qb.query().select(qb.literal(1)).build();
 
 let printer = new MySQLAstPrinter(q);
-printer.visit();
+// printer.visit();
 
 let compiler = new MySQLQueryCompiler(q);
+console.log(compiler.compile());
+
+compiler = new MySQLQueryCompiler(q1);
 console.log(compiler.compile());
 
 let q2 = qb.query().select("*").build();
@@ -76,7 +79,7 @@ console.log(json);
 
 q2 = serializer.deserialize(json);
 printer = new MySQLAstPrinter(q2);
-printer.visit();
+// printer.visit();
 
 compiler = new MySQLQueryCompiler(q2);
 console.log(compiler.compile());
