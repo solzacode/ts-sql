@@ -1,8 +1,13 @@
 import { QueryVisitor, QueryContext } from "./queryVisitor";
 import { SqlAstNode, AllColumns, SqlRoot } from "./astsql";
 
+export interface AstLogger {
+    log(message: string): void;
+}
+
 export interface AstPrintOptions {
     indentSize: number;
+    logger: AstLogger;
 }
 
 export class MySQLAstPrinter extends QueryVisitor {
@@ -17,21 +22,24 @@ export class MySQLAstPrinter extends QueryVisitor {
         this._indents = new Map<SqlAstNode, number>();
     }
 
-    public visitGenericNode(context: QueryContext, node: SqlAstNode) {
-        console.log(this.getIndentation(context) + SqlAstNode.getNodeType(node));
-
-        return super.visitGenericNode(context, node);
+    public print() {
+        this.visit();
     }
 
-    public visitAllColumns(context: QueryContext, node: AllColumns) {
-        console.log(this.getIndentation(context) + node.table + "*");
-        return context;
+    protected visitGenericNode(context: QueryContext, node: SqlAstNode) {
+        this.log(this.getIndentation(context) + SqlAstNode.getNodeType(node));
+        return super.visitGenericNode(context, node);
     }
 
     private getDefaultOptions(): AstPrintOptions {
         return {
-            indentSize: 2
+            indentSize: 2,
+            logger: { log: (message) => console.log(message) }
         };
+    }
+
+    private log(message: string) {
+        this._options.logger.log(message);
     }
 
     private getIndentation(context: QueryContext): string {

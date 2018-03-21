@@ -15,7 +15,7 @@ class GenericQueryContext implements QueryContext {
     }
 }
 
-export class QueryVisitor<TContext extends QueryContext = QueryContext> {
+export abstract class QueryVisitor<TContext extends QueryContext = QueryContext> {
     public visitStarted: boolean;
     private _contextBuilder: ContextBuilder;
 
@@ -28,7 +28,8 @@ export class QueryVisitor<TContext extends QueryContext = QueryContext> {
         }
     }
 
-    public visit(): TContext {
+    // Derived classes must call this to start the visiting process
+    protected visit(): TContext {
         if (this.visitStarted) {
             throw Error("Visit already initiated");
         }
@@ -58,6 +59,8 @@ export class QueryVisitor<TContext extends QueryContext = QueryContext> {
         return context;
     }
 
+    // Generic visit method. The visiting process falls back to this if it doesn't find a visit<NodeType> method
+    // e.g. visitSelectStatement or visitQueryExpression
     protected visitGenericNode(context: TContext, node: ast.SqlAstNode): TContext {
         let anyNode: any = node;
 
@@ -79,10 +82,17 @@ export class QueryVisitor<TContext extends QueryContext = QueryContext> {
         return context;
     }
 
+    // Context builder
     protected buildContext(): TContext {
         return <TContext> new this._contextBuilder(this.query);
     }
 
+    // Determines whether this object should be visited
+    protected shouldVisitNode(node: any): boolean {
+        return node && (node instanceof ast.SqlAstNode || node.nodeType);
+    }
+
+    // Determines which visit method to call and calls here
     private doVisitNode(context: TContext, node: ast.SqlAstNode): TContext {
         let nodeType = ast.SqlAstNode.getNodeType(node);
         let visitorMethod = "visit" + nodeType;
@@ -93,9 +103,5 @@ export class QueryVisitor<TContext extends QueryContext = QueryContext> {
         }
 
         return this.visitGenericNode(context, node);
-    }
-
-    private shouldVisitNode(node: any): boolean {
-        return node && (node instanceof ast.SqlAstNode || node.nodeType);
     }
 }
