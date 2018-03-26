@@ -1,5 +1,5 @@
 import { QueryVisitor, QueryContext } from "./queryVisitor";
-import { SqlAstNode, AllColumns, SqlRoot } from "./astsql";
+import { SqlAstNode, AllColumns, SqlRoot, SqlDialect } from "./astsql";
 
 export interface AstLogger {
     log(message: string): void;
@@ -10,12 +10,12 @@ export interface AstPrintOptions {
     logger: AstLogger;
 }
 
-export class MySQLAstPrinter extends QueryVisitor {
+export abstract class QueryAstPrinter extends QueryVisitor {
     private _options: AstPrintOptions;
     private _indents: Map<SqlAstNode, number>;
 
-    constructor(query: SqlRoot, options?: Partial<AstPrintOptions>) {
-        super("MySQL", query);
+    constructor(dialect: SqlDialect, query: SqlRoot, options?: Partial<AstPrintOptions>) {
+        super(dialect, query);
 
         let defaultOptions = this.getDefaultOptions();
         this._options = { ...defaultOptions, ...options };
@@ -53,5 +53,11 @@ export class MySQLAstPrinter extends QueryVisitor {
 
         let ci: number = this._indents.get(context.currentNode) || 0;
         return " ".repeat(ci * this._options.indentSize);
+    }
+}
+
+export class MySQLAstPrinter extends QueryAstPrinter {
+    constructor(query: SqlRoot, options?: Partial<AstPrintOptions>) {
+        super("MySQL", query, options);
     }
 }

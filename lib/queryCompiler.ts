@@ -1,5 +1,5 @@
 import * as ast from "./astsql";
-import { QueryVisitor, QueryContext } from "./queryVisitor";
+import { QueryVisitor, QueryContext, ContextBuilder } from "./queryVisitor";
 
 export class CompilationContext implements QueryContext {
     public parentNode?: ast.SqlAstNode;
@@ -15,11 +15,11 @@ export interface CompileMethod<TNode extends ast.SqlAstNode = ast.SqlAstNode> {
     (context: CompilationContext, node: TNode): CompilationContext;
 }
 
-export class QueryCompiler extends QueryVisitor<CompilationContext> {
+export abstract class QueryCompiler extends QueryVisitor<CompilationContext> {
     delimiter: string;
 
-    constructor(public dialect: ast.SqlDialect, query: ast.SqlRoot) {
-        super(dialect, query, CompilationContext);
+    constructor(public dialect: ast.SqlDialect, query: ast.SqlRoot, contextBuilder: ContextBuilder = CompilationContext) {
+        super(dialect, query, contextBuilder);
 
         this.delimiter = ";";
     }
@@ -27,6 +27,11 @@ export class QueryCompiler extends QueryVisitor<CompilationContext> {
     compile(): string {
         let context = this.visit();
         return context.queryString;
+    }
+
+    protected visitSqlRoot: CompileMethod<ast.SqlRoot> = (context, node) => {
+        context.queryString = node.statements.map(s => this.visitNode(context, s).queryString).join(this.delimiter + "\n");
+        return context;
     }
 
     protected visitQueryExpression: CompileMethod<ast.QueryExpression> = (context, node) => {
@@ -164,7 +169,7 @@ export class QueryCompiler extends QueryVisitor<CompilationContext> {
 
 export class MySQLQueryCompiler extends QueryCompiler {
     constructor(query: ast.SqlRoot) {
-        super("MySQL", query);
+        super("MySQL", query, CompilationContext);
 
         // Customize any other instance properties here, e.g. this.delimiter = "GO"; // For SQL Server (T-SQL)
     }

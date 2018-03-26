@@ -279,7 +279,7 @@ class QueryableImpl implements
     }
 }
 
-export class QueryBuilderBase implements QueryBuilder, QueryElementsBuilder, ExpressionBuilder, PredicateBuilder {
+export abstract class QueryBuilderBase implements QueryBuilder, QueryElementsBuilder, ExpressionBuilder, PredicateBuilder {
     constructor(public dialect: ast.SqlDialect) { }
 
     alias(node: ast.SqlAstNode, aliasName: string) {

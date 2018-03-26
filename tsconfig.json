@@ -17,7 +17,8 @@
     "alwaysStrict": true
   },
   "include": [
-    "lib"
+    "lib",
+    "test"
   ],
   "exclude": [
     "dist",

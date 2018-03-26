@@ -34,6 +34,7 @@
         "coveralls": "^3.0.0",
         "istanbul": "^0.4.5",
         "jest": "^22.2.2",
+        "jest-cli": "^22.4.3",
         "ts-jest": "^22.0.4",
         "typescript": "^2.7.1"
     },
@@ -42,7 +43,10 @@
             "^.+\\.tsx?$": "ts-jest",
             "^.+\\.ts?$": "ts-jest"
         },
-        "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?|ts?|js?)$",
+        "testMatch": [
+            "**/dist/**/?(*.)(spec|test).js?(x)",
+            "**/dist/**/?(*.)(spec|test).ts?(x)"
+        ],
         "moduleFileExtensions": [
             "ts",
             "tsx",
@@ -52,7 +56,7 @@
         "collectCoverage": true
     },
     "dependencies": {
-        "jsymbol": "^0.3.1",
+        "jsymbol": "^0.3.2",
         "reflect-metadata": "^0.1.12"
     }
 }
