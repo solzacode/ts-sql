@@ -44,8 +44,8 @@
             "^.+\\.ts?$": "ts-jest"
         },
         "testMatch": [
-            "**/dist/**/?(*.)(spec|test).js?(x)",
-            "**/dist/**/?(*.)(spec|test).ts?(x)"
+            "**/__tests__/**/*.js?(x)",
+            "**/dist/**/?(*.)(spec|test).js?(x)"
         ],
         "moduleFileExtensions": [
             "ts",
