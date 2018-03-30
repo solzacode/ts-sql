@@ -17,11 +17,9 @@
     "alwaysStrict": true
   },
   "include": [
-    "lib",
-    "test"
+    "lib"
   ],
   "exclude": [
-    "dist",
     "node_modules"
   ],
   "typeAcquisition": {
