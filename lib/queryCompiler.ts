@@ -48,6 +48,14 @@ export abstract class QueryCompiler extends QueryVisitor<CompilationContext> {
             query += "\n" + this.visitNode(context, node.from).queryString;
         }
 
+        if (node.orderBy) {
+            query += "\n" + this.visitNode(context, node.orderBy).queryString;
+        }
+
+        if (node.limit) {
+            query += "\n" + this.visitNode(context, node.limit).queryString;
+        }
+
         context.queryString = query;
         return context;
     }
@@ -143,6 +151,17 @@ export abstract class QueryCompiler extends QueryVisitor<CompilationContext> {
         return context;
     }
 
+    protected visitLikePredicate: CompileMethod<ast.LikePredicate> = (context, node) => {
+        context.queryString =
+            "("
+            + this.visitNode(context, node.left).queryString
+            + (node.negate ? " NOT LIKE " : " LIKE ")
+            + this.visitNode(context, node.right).queryString
+            + ")";
+
+        return context;
+    }
+
     protected visitColumnName: CompileMethod<ast.ColumnName> = (context, node) => {
         context.queryString = node.table ? node.table.toString() + "." + node.name.toString() : node.name.toString();
         return context;
@@ -150,6 +169,21 @@ export abstract class QueryCompiler extends QueryVisitor<CompilationContext> {
 
     protected visitWhereClause: CompileMethod<ast.WhereClause> = (context, node) => {
         context.queryString = "WHERE " + this.visitNode(context, node.expression).queryString;
+        return context;
+    }
+
+    protected visitOrderByClause: CompileMethod<ast.OrderByClause> = (context, node) => {
+        context.queryString = "ORDER BY " + node.expressions.map(oe => this.visitNode(context, oe).queryString).join(", ");
+        return context;
+    }
+
+    protected visitOrderByExpression: CompileMethod<ast.OrderByExpression> = (context, node) => {
+        context.queryString = this.visitNode(context, node.expression).queryString + (node.descending ? " DESC " : " ASC ");
+        return context;
+    }
+
+    protected visitLimitClause: CompileMethod<ast.LimitClause> = (context, node) => {
+        context.queryString = "LIMIT " + node.limit.toString() + (node.offset ? node.offset.toString() : "");
         return context;
     }
 

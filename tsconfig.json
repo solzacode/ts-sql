@@ -14,14 +14,13 @@
     "forceConsistentCasingInFileNames": true,
     "pretty": true,
     "alwaysStrict": true,
-    "inlineSourceMap": true,
-    "inlineSources": true
+    "sourceMap": true
   },
   "include": [
     "lib"
   ],
   "exclude": [
-    "node_modules"
+    "coverage", "dist","grammar", "node_modules"
   ],
   "typeAcquisition": {
     "enable": true
