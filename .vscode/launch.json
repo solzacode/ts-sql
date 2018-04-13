@@ -7,6 +7,19 @@
         {
             "type": "node",
             "request": "launch",
+            "name": "Jest Current File",
+            "program": "${workspaceFolder}/node_modules/jest/bin/jest",
+            "args": [
+                "${relativeFile}",
+                "--runInBand",
+                "--no-cache"
+            ],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+        },
+        {
+            "type": "node",
+            "request": "launch",
             "name": "Launch Program",
             "program": "${workspaceFolder}\\dist\\index.js",
             "preLaunchTask": "tsc: build - tsconfig.json",
@@ -18,7 +31,7 @@
             "type": "node",
             "request": "launch",
             "name": "Jest all",
-            "program": "${workspaceFolder}/node_modules/jest-cli/bin/jest.js",
+            "program": "${workspaceFolder}/node_modules/jest/bin/jest",
             "stopOnEntry": false,
             "cwd": "${workspaceFolder}",
             "args": [

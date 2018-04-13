@@ -16,7 +16,7 @@ class GenericQueryContext implements QueryContext {
 }
 
 export abstract class QueryVisitor<TContext extends QueryContext = QueryContext> {
-    public visitStarted: boolean;
+    protected visitStarted: boolean;
     private _contextBuilder: ContextBuilder;
 
     constructor(public dialect: ast.SqlDialect, public query: ast.SqlRoot, contextBuilder?: ContextBuilder) {

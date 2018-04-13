@@ -34,6 +34,11 @@ export class QueryValidator extends QueryVisitor<ValidationContext> {
         super(dialect, query, contextBuilder);
     }
 
+    public validate(): SymbolTable<SqlAstSymbol> {
+        let context = this.visit();
+        return context.symbolTable;
+    }
+
     protected visitSelectStatement: ValidationMethod<ast.SelectStatement> = (context, node) => {
         context.symbolTable.enterScope();
         this.visitGenericNode(context, node.query);

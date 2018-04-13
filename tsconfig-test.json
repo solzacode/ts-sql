@@ -1,0 +1,10 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "target": "es5",
+        "declaration": false,
+        "inlineSourceMap": true,
+        "inlineSources": true,
+        "sourceMap": true
+    }
+}
