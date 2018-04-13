@@ -35,11 +35,11 @@ describe("queryCompiler unit tests", () => {
             .build();
 
         let compiledQuery =
-            "SELECT *\n" +
-            "FROM (raw_table_10) AS ol\n" +
-            "INNER JOIN (raw_table_9) AS o ON (o.string_field_1 = ol.string_field_2)\n" +
-            "INNER JOIN (raw_table_1) AS a ON (o.string_field_1 = ol.string_field_2)\n" +
-            "WHERE (o.string_field_1 = ol.string_field_2)\n" +
+            "SELECT * " +
+            "FROM raw_table_10 AS ol " +
+            "INNER JOIN raw_table_9 AS o ON (o.string_field_1 = ol.string_field_2) " +
+            "INNER JOIN raw_table_1 AS a ON (o.string_field_1 = ol.string_field_2) " +
+            "WHERE (o.string_field_1 = ol.string_field_2) " +
             "GROUP BY ol.string_field_5";
 
         let qc = new sql.MySQLQueryCompiler(query);

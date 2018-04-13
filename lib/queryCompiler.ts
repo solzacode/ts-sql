@@ -30,7 +30,7 @@ export abstract class QueryCompiler extends QueryVisitor<CompilationContext> {
     }
 
     protected visitSqlRoot: CompileMethod<ast.SqlRoot> = (context, node) => {
-        context.queryString = node.statements.map(s => this.visitNode(context, s).queryString).join(this.delimiter + "\n");
+        context.queryString = node.statements.map(s => this.visitNode(context, s).queryString).join(this.delimiter + " ");
         return context;
     }
 
@@ -45,15 +45,15 @@ export abstract class QueryCompiler extends QueryVisitor<CompilationContext> {
         query += elementStrings.concat(node.elements.map(v => this.visitNode(context, v).queryString)).join(", ");
 
         if (node.from) {
-            query += "\n" + this.visitNode(context, node.from).queryString;
+            query += " " + this.visitNode(context, node.from).queryString;
         }
 
         if (node.orderBy) {
-            query += "\n" + this.visitNode(context, node.orderBy).queryString;
+            query += " " + this.visitNode(context, node.orderBy).queryString;
         }
 
         if (node.limit) {
-            query += "\n" + this.visitNode(context, node.limit).queryString;
+            query += " " + this.visitNode(context, node.limit).queryString;
         }
 
         context.queryString = query;
@@ -75,15 +75,15 @@ export abstract class QueryCompiler extends QueryVisitor<CompilationContext> {
         fromClause = "FROM " + fromClause;
 
         if (node.where) {
-            fromClause += "\n" + this.visitNode(context, node.where).queryString;
+            fromClause += " " + this.visitNode(context, node.where).queryString;
         }
 
         if (node.groupBy) {
-            fromClause += "\n" + this.visitNode(context, node.groupBy).queryString;
+            fromClause += " " + this.visitNode(context, node.groupBy).queryString;
         }
 
         if (node.having) {
-            fromClause += "\n HAVING " + this.visitNode(context, node.having).queryString;
+            fromClause += " HAVING " + this.visitNode(context, node.having).queryString;
         }
 
         context.queryString = fromClause;
@@ -95,7 +95,7 @@ export abstract class QueryCompiler extends QueryVisitor<CompilationContext> {
         let joins = node.joins ? node.joins.map(j => this.visitNode(context, j).queryString) : [];
 
         joins = [table].concat(joins);
-        context.queryString = joins.join("\n");
+        context.queryString = joins.join(" ");
 
         return context;
     }
@@ -126,7 +126,7 @@ export abstract class QueryCompiler extends QueryVisitor<CompilationContext> {
 
     protected visitAliasedTerm: CompileMethod< ast.AliasedTerm<ast.SqlAstNode>> = (context, node) => {
         let termQuery = this.visitNode(context, node.term).queryString;
-        context.queryString = node.alias ?  "(" + termQuery + ") AS " + node.alias : termQuery;
+        context.queryString = node.alias ? termQuery + " AS " + node.alias : termQuery;
 
         return context;
     }
