@@ -14,6 +14,10 @@ export class SqlAstSymbol implements AstSymbol<ast.SqlSymbolType> {
     constructor(public identifier: string, public type: ast.SqlSymbolType) {
         this.state = SymbolState.Unresolved;
     }
+
+    toString() {
+        return this.identifier;
+    }
 }
 
 export class ValidationContext implements QueryContext {
