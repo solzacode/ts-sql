@@ -14,4 +14,22 @@ describe("querySerializer unit tests", () => {
         // q2 = serializer.deserialize(json);
         expect(json).toBe(query);
     });
+
+    it("serialize and deserialize will produce right compiled query", () => {
+        let query = qb.query()
+            .from("accounts", "a")
+            .where(qb.equals(qb.column("a.id"), qb.literal(123)))
+            .select(qb.column("a.name")).build();
+
+        let qc = new sql.MySQLQueryCompiler(query);
+        let expected = qc.compile();
+
+        let serialized = serializer.serialize(query);
+        let qd = serializer.deserialize(serialized);
+
+        qc = new sql.MySQLQueryCompiler(qd);
+        let actual = qc.compile();
+
+        expect(actual).toEqual(expected);
+    });
 });

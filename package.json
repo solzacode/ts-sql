@@ -1,6 +1,6 @@
 {
     "name": "ts-sql",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "An SQL builder in Typescript. This project is heavily inspired by [XQL](/extjs/xql). A big shout out to @exjs and @kobalicek for this amazing project.",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",

@@ -47,4 +47,36 @@ describe("queryCompiler unit tests", () => {
 
         expect(compilation).toBe(compiledQuery);
     });
+
+    it("compiles with multiple expressions with qb.and", () => {
+        let query = qb.query()
+            .from("accounts", "a")
+            .where(qb.and(
+                qb.equals(qb.column("a.id"), qb.literal(123)),
+                qb.equals(qb.column("a.city"), qb.literal("Redmond")),
+                qb.equals(qb.column("a.country"), qb.literal("USA"))))
+            .select(qb.column("a.name")).build();
+
+        let qc = new sql.MySQLQueryCompiler(query);
+        let actual = qc.compile();
+        let expected = "SELECT a.name FROM accounts AS a WHERE (((a.id = 123) AND (a.city = 'Redmond')) AND (a.country = 'USA'))";
+
+        expect(actual).toEqual(expected);
+    });
+
+    it("compiles with multiple expressions with qb.or", () => {
+        let query = qb.query()
+            .from("accounts", "a")
+            .where(qb.or(
+                qb.equals(qb.column("a.id"), qb.literal(123)),
+                qb.equals(qb.column("a.city"), qb.literal("Redmond")),
+                qb.equals(qb.column("a.country"), qb.literal("USA"))))
+            .select(qb.column("a.name")).build();
+
+        let qc = new sql.MySQLQueryCompiler(query);
+        let actual = qc.compile();
+        let expected = "SELECT a.name FROM accounts AS a WHERE (((a.id = 123) OR (a.city = 'Redmond')) OR (a.country = 'USA'))";
+
+        expect(actual).toEqual(expected);
+    });
 });

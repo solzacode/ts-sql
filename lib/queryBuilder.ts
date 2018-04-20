@@ -329,12 +329,22 @@ export abstract class QueryBuilderBase implements QueryBuilder, QueryElementsBui
         return new ast.NotExpression(expression);
     }
 
-    and(left: ast.Expression, right: ast.Expression): ast.BinaryExpression<ast.LogicalOperator> {
-        return new ast.BinaryExpression<ast.LogicalOperator>(left, "AND", right);
+    and(left: ast.Expression, right: ast.Expression, ...more: ast.Expression[]): ast.BinaryExpression<ast.LogicalOperator> {
+        let result = new ast.BinaryExpression<ast.LogicalOperator>(left, "AND", right);
+        for (let expr of more) {
+            result = new ast.BinaryExpression<ast.LogicalOperator>(result, "AND", expr);
+        }
+
+        return result;
     }
 
-    or(left: ast.Expression, right: ast.Expression): ast.BinaryExpression<ast.LogicalOperator> {
-        return new ast.BinaryExpression<ast.LogicalOperator>(left, "OR", right);
+    or(left: ast.Expression, right: ast.Expression, ...more: ast.Expression[]): ast.BinaryExpression<ast.LogicalOperator> {
+        let result = new ast.BinaryExpression<ast.LogicalOperator>(left, "OR", right);
+        for (let expr of more) {
+            result = new ast.BinaryExpression<ast.LogicalOperator>(result, "OR", expr);
+        }
+
+        return result;
     }
 
     xor(left: ast.Expression, right: ast.Expression): ast.BinaryExpression<ast.LogicalOperator> {
