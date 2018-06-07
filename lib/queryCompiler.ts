@@ -162,6 +162,19 @@ export abstract class QueryCompiler extends QueryVisitor<CompilationContext> {
         return context;
     }
 
+    protected visitInPredicate: CompileMethod<ast.InPredicate> = (context, node) => {
+        context.queryString =
+            "("
+            + this.visitNode(context, node.predicate).queryString
+            + (node.negate ? " NOT IN " : " IN ")
+            + "("
+            + this.visitNode(context, node.target).queryString
+            + ")"
+            + ")";
+
+        return context;
+    }
+
     protected visitColumnName: CompileMethod<ast.ColumnName> = (context, node) => {
         context.queryString = node.table ? node.table.toString() + "." + node.name.toString() : node.name.toString();
         return context;

@@ -79,4 +79,25 @@ describe("queryCompiler unit tests", () => {
 
         expect(actual).toEqual(expected);
     });
+
+    it("compiles with multiple expressions with qb.in", () => {
+        let subQuery = qb.query()
+            .from("accounts", "a")
+            .where(qb.equals(qb.column("a.id"), qb.literal(123)))
+            .select(qb.column("DISTINCT a.city")).toSelect();
+
+        let query = qb.query()
+            .from("accounts", "a")
+            .where(qb.or(
+                qb.equals(qb.column("a.id"), qb.literal(123)),
+                qb.in(qb.column("a.city"), subQuery),
+                qb.equals(qb.column("a.country"), qb.literal("USA"))))
+            .select(qb.column("a.name")).build();
+
+        let qc = new sql.MySQLQueryCompiler(query);
+        let actual = qc.compile();
+        let expected = "SELECT a.name FROM accounts AS a WHERE (((a.id = 123) OR (a.city IN (SELECT DISTINCT a.city FROM accounts AS a WHERE (a.id = 123)))) OR (a.country = 'USA'))";
+
+        expect(actual).toEqual(expected);
+    });
 });
